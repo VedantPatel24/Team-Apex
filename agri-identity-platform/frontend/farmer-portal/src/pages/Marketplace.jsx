@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Box, Container, Typography, Grid, Card, CardContent, CardActions, Button, Chip, Avatar } from '@mui/material';
 import { motion } from 'framer-motion';
 import api from '../services/api';
@@ -14,10 +15,17 @@ const Marketplace = () => {
             .catch(err => console.error("Err fetching services", err));
     }, []);
 
+    const navigate = useNavigate();
+
     const handleConnect = (service) => {
         if (service.name === "Agricultural Loan Service") {
             // Direct to internal Loan Application Flow
-            window.location.href = "/loan/apply";
+            navigate("/loan/apply");
+            return;
+        }
+
+        if (service.client_id === "CROP_ADVISORY_001") {
+            navigate("/crop-advisory/apply");
             return;
         }
 

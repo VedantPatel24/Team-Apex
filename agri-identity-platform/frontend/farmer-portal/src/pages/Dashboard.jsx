@@ -58,7 +58,17 @@ const Dashboard = () => {
         } catch (error) {
             console.error("Failed to fetch loan applications", error);
         }
+
+        // 5. Fetch Advisory Requests
+        try {
+            const resAdv = await api.get('/crop-advisory/my-requests');
+            setAdvisoryReqs(resAdv.data);
+        } catch (error) {
+            console.error("Failed to fetch advisories", error);
+        }
     };
+
+    const [advisoryReqs, setAdvisoryReqs] = useState([]);
 
     const handleLogout = () => {
         localStorage.removeItem('token');
@@ -245,6 +255,52 @@ const Dashboard = () => {
                                                     <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
                                                         "{app.admin_notes}"
                                                     </Typography>
+                                                </Alert>
+                                            )}
+                                        </ListItem>
+                                    ))}
+                                </List>
+                            )}
+                        </Paper>
+
+                        {/* Active Advisories */}
+                        <Paper sx={{ p: 3, borderRadius: 3, mt: 3 }}>
+                            <Typography variant="h6" gutterBottom>My Crop Advisories</Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                <Typography variant="body2" color="textSecondary">
+                                    Expert advice for your crops.
+                                </Typography>
+                                <Button variant="text" onClick={() => navigate('/crop-advisory/apply')}>
+                                    + New Request
+                                </Button>
+                            </Box>
+                            <Divider />
+                            {advisoryReqs.length === 0 ? (
+                                <Box sx={{ p: 3, textAlign: 'center' }}>
+                                    <Typography color="textSecondary">No advisory requests found.</Typography>
+                                </Box>
+                            ) : (
+                                <List>
+                                    {advisoryReqs.map((req) => (
+                                        <ListItem key={req.id} sx={{ borderBottom: '1px solid #eee', display: 'block' }}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <ListItemText
+                                                    primary={`${req.crop_name} (${req.season})`}
+                                                    secondary={`Location: ${req.location}`}
+                                                />
+                                                <Chip
+                                                    label={req.status}
+                                                    size="small"
+                                                    color={req.status === 'ADVISED' ? 'success' : 'default'}
+                                                />
+                                            </Box>
+                                            {/* Advisory Content */}
+                                            {req.status === 'ADVISED' && (
+                                                <Alert severity="success" sx={{ mt: 1 }}>
+                                                    <Typography variant="subtitle2">Recommendation:</Typography>
+                                                    <Typography variant="body2">{req.recommendation}</Typography>
+                                                    <Divider sx={{ my: 1 }} />
+                                                    <Typography variant="caption"><strong>Plan:</strong> {req.fertilizer_plan}</Typography>
                                                 </Alert>
                                             )}
                                         </ListItem>

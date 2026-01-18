@@ -9,6 +9,7 @@ class Farmer(Base):
     full_name = Column(String, index=True)
     phone_number = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=True)
+    location = Column(String, nullable=True) # Village / Region
     hashed_password = Column(String, nullable=False)
     
     is_active = Column(Boolean, default=True)

@@ -17,6 +17,7 @@ class FarmerBase(BaseModel):
     full_name: str
     phone_number: str
     email: Optional[EmailStr] = None
+    location: Optional[str] = None
 
 class FarmerCreate(FarmerBase):
     password: str
@@ -131,3 +132,36 @@ class LoanApplicationResponse(BaseModel):
 class AdminLogin(BaseModel):
     username: str
     password: str
+
+# --- Crop Advisory Schemas ---
+class CropAdvisoryCreate(BaseModel):
+    service_id: int
+    crop_name: str
+    season: str
+    # Optional
+    soil_health_doc_id: Optional[int] = None
+    last_yield: Optional[str] = None
+    irrigation_type: Optional[str] = None
+
+class CropAdvisoryResponse(BaseModel):
+    id: int
+    farmer_id: int
+    service_id: int
+    
+    # Inputs
+    location: str # Snapshot from profile
+    crop_name: str
+    season: str
+    irrigation_type: Optional[str] = None
+    last_yield: Optional[str] = None
+    soil_health_doc_id: Optional[int] = None
+    
+    status: str
+    recommendation: Optional[str] = None
+    fertilizer_plan: Optional[str] = None
+    sowing_schedule: Optional[str] = None
+    
+    created_at: Any
+    
+    class Config:
+        from_attributes = True

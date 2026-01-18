@@ -61,19 +61,22 @@ def get_farmer_data(
         response_data["full_name"] = farmer.full_name
         response_data["email"] = farmer.email
         response_data["phone_number"] = farmer.phone_number
-        response_data["profile_photo"] = farmer.profile_photo
+        response_data["location"] = farmer.location # Added Location
+        # response_data["profile_photo"] = farmer.profile_photo
         # Public attributes
-        response_data["attributes"] = farmer.attributes
+        # response_data["attributes"] = farmer.attributes
 
     # 2. Sensitive Data - Aadhaar
     if "aadhaar" in scopes:
         # Decrypt on the fly
-        response_data["aadhaar_number"] = decrypt_data(farmer.aadhaar_enc)
+        # response_data["aadhaar_number"] = decrypt_data(farmer.aadhaar_enc)
+        pass
     
     # 3. Land Records
     if "land_records" in scopes:
-         response_data["land_record_id"] = decrypt_data(farmer.land_record_id_enc)
+         # response_data["land_record_id"] = decrypt_data(farmer.land_record_id_enc)
          # In a real app, might fetch external details using this ID
+         pass
 
     # 4. Audit Log (Log this access!)
     from app.models.access_log import AccessLog
@@ -116,3 +119,33 @@ def get_access_logs(
             ip_address=log.ip_address
         ) for log in logs
     ]
+
+from pydantic import BaseModel
+class ProfileUpdate(BaseModel):
+    location: Optional[str] = None
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+
+@router.post("/profile/update")
+def update_profile(
+    update_data: ProfileUpdate,
+    context: dict = Depends(get_current_user_and_scopes),
+    db: Session = Depends(get_db)
+):
+    farmer_id = context["user_id"]
+    from app.models.farmer import Farmer
+    farmer = db.query(Farmer).filter(Farmer.id == farmer_id).first()
+    
+    if not farmer:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if update_data.location:
+        farmer.location = update_data.location
+    if update_data.email:
+        farmer.email = update_data.email
+    if update_data.full_name:
+        farmer.full_name = update_data.full_name
+
+    db.commit()
+    db.refresh(farmer)
+    return {"message": "Profile updated successfully", "location": farmer.location}

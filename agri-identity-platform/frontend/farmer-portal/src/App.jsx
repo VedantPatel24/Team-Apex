@@ -9,6 +9,7 @@ import DocumentVault from './pages/DocumentVault';
 import LoanApplicationPage from './pages/LoanApplicationPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboard from './pages/AdminDashboard';
+import CropAdvisoryPage from './pages/CropAdvisoryPage';
 
 // Simple Protected Route
 const ProtectedRoute = ({ children }) => {
@@ -48,6 +49,14 @@ const App = () => {
                     element={
                         <ProtectedRoute>
                             <LoanApplicationPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/crop-advisory/apply"
+                    element={
+                        <ProtectedRoute>
+                            <CropAdvisoryPage />
                         </ProtectedRoute>
                     }
                 />
