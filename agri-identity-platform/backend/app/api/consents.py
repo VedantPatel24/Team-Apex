@@ -106,4 +106,22 @@ def revoke_consent_endpoint(
     success = consent_repo.revoke_consent(db, farmer_id, service_id)
     if not success:
          raise HTTPException(status_code=404, detail="Consent not found or already revoked")
+    
+    # --- AUTO-REJECT LOGIC ---
+    from app.models.loan_application import LoanApplication
+    # Calculate how many rows updated
+    updated_rows = db.query(LoanApplication).filter(
+        LoanApplication.farmer_id == farmer_id,
+        LoanApplication.service_id == service_id,
+        LoanApplication.status.in_(["PENDING", "REQUEST_DOC"])
+    ).update({
+        "status": "REJECTED", 
+        "admin_notes": "Automatically rejected due to consent revocation by user."
+    }, synchronize_session=False)
+    
+    if updated_rows > 0:
+        db.commit()
+        print(f"Auto-rejected {updated_rows} loans for Farmer {farmer_id}")
+    # -------------------------
+
     return {"message": "Access revoked successfully"}

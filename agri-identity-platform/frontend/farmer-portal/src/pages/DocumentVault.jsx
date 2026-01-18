@@ -1,15 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Container, Typography, Grid, Paper, Button, List, ListItem, ListItemIcon, ListItemText, Divider, IconButton, CircularProgress } from '@mui/material';
+import { Box, Container, Typography, Paper, Button, List, ListItem, ListItemIcon, ListItemText, Divider, IconButton, CircularProgress, TextField, FormControlLabel, Checkbox, Dialog, DialogTitle, DialogContent, DialogActions, Alert } from '@mui/material';
 import api from '../services/api';
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import DownloadIcon from '@mui/icons-material/Download';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import AddIcon from '@mui/icons-material/Add';
 import { toast } from 'react-toastify';
 
 const DocumentVault = () => {
     const [documents, setDocuments] = useState([]);
     const [uploading, setUploading] = useState(false);
+
+    // Form State
+    const [open, setOpen] = useState(false);
+    const [docName, setDocName] = useState("");
+    const [docType, setDocType] = useState("OTHER");
+    const [isSensitive, setIsSensitive] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [validationError, setValidationError] = useState("");
 
     useEffect(() => {
         fetchDocuments();
@@ -24,24 +33,60 @@ const DocumentVault = () => {
         }
     };
 
-    const handleUpload = async (event) => {
-        const file = event.target.files[0];
-        if (!file) return;
+    const handleOpen = () => {
+        setDocName("");
+        setDocType("OTHER");
+        setIsSensitive(false);
+        setSelectedFile(null);
+        setValidationError("");
+        setOpen(true);
+    };
+
+    const handleClose = () => {
+        if (!uploading) setOpen(false);
+    };
+
+    const handleFileChange = (event) => {
+        if (event.target.files && event.target.files[0]) {
+            const file = event.target.files[0];
+            setSelectedFile(file);
+            // Auto-fill name if empty
+            if (!docName) {
+                setDocName(file.name);
+            }
+        }
+    };
+
+    const handleUpload = async () => {
+        // Validation
+        if (!docName.trim()) {
+            setValidationError("Document Name is required.");
+            return;
+        }
+        if (!selectedFile) {
+            setValidationError("Please select a file.");
+            return;
+        }
 
         const formData = new FormData();
-        formData.append('file', file);
-        formData.append('title', file.name); // Simple title
+        formData.append('file', selectedFile);
+        formData.append('title', docName);
+        formData.append('doc_type', docType);
+        formData.append('is_sensitive', isSensitive);
 
         setUploading(true);
+        setValidationError("");
+
         try {
             await api.post('/documents/upload', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            toast.success("Document Encrypted & Uploaded!");
+            toast.success("Document Uploaded Successfully!");
             fetchDocuments();
+            handleClose();
         } catch (err) {
             console.error(err);
-            toast.error("Upload failed");
+            toast.error("Upload failed. Please try again.");
         } finally {
             setUploading(false);
         }
@@ -79,23 +124,17 @@ const DocumentVault = () => {
                                     Secure Document Vault
                                 </Typography>
                                 <Typography variant="body2" color="textSecondary">
-                                    Upload confidential documents. They are encrypted on storage.
+                                    Manage your sensitive documents securely.
                                 </Typography>
                             </Box>
                         </Box>
 
                         <Button
                             variant="contained"
-                            component="label"
-                            startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : <UploadFileIcon />}
-                            disabled={uploading}
+                            startIcon={<AddIcon />}
+                            onClick={handleOpen}
                         >
                             Upload Document
-                            <input
-                                type="file"
-                                hidden
-                                onChange={handleUpload}
-                            />
                         </Button>
                     </Box>
 
@@ -113,11 +152,11 @@ const DocumentVault = () => {
                             {documents.map((doc) => (
                                 <ListItem key={doc.id} sx={{ mb: 1, bgcolor: '#f9f9f9', borderRadius: 2 }}>
                                     <ListItemIcon>
-                                        <InsertDriveFileIcon color="action" />
+                                        <InsertDriveFileIcon color={doc.is_sensitive ? "error" : "action"} />
                                     </ListItemIcon>
                                     <ListItemText
                                         primary={doc.title}
-                                        secondary={new Date(doc.created_at).toLocaleString()}
+                                        secondary={`${doc.doc_type} • ${new Date(doc.created_at).toLocaleString()} ${doc.is_sensitive ? "• Encrypted" : ""}`}
                                     />
                                     <IconButton onClick={() => handleDownload(doc)} color="primary">
                                         <DownloadIcon />
@@ -128,6 +167,79 @@ const DocumentVault = () => {
                     )}
                 </Paper>
             </Container>
+
+            {/* Upload Dialog */}
+            <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+                <DialogTitle>Upload New Document</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {validationError && (
+                            <Alert severity="error">{validationError}</Alert>
+                        )}
+
+                        <TextField
+                            label="Document Name"
+                            variant="outlined"
+                            fullWidth
+                            required
+                            value={docName}
+                            onChange={(e) => setDocName(e.target.value)}
+                            placeholder="e.g., My Aadhaar Card"
+                        />
+
+                        <TextField
+                            select
+                            label="Document Type"
+                            fullWidth
+                            required
+                            value={docType}
+                            onChange={(e) => setDocType(e.target.value)}
+                            SelectProps={{
+                                native: true,
+                            }}
+                        >
+                            <option value="OTHER">Other / General</option>
+                            <option value="IDENTITY">Identity Proof (Aadhaar/PAN)</option>
+                            <option value="LAND_RECORD">Land Ownership Record</option>
+                            <option value="CROP_DETAILS">Crop Details / Season</option>
+                            <option value="BANK_STATEMENT">Bank Statement</option>
+                            <option value="LOAN_HISTORY">Previous Loan History</option>
+                            <option value="SOIL_CARD">Soil Health Card</option>
+                        </TextField>
+
+                        <Button
+                            variant="outlined"
+                            component="label"
+                            startIcon={<UploadFileIcon />}
+                            fullWidth
+                            sx={{ height: 56, justifyContent: 'flex-start', px: 2, borderColor: selectedFile ? 'primary.main' : 'rgba(0, 0, 0, 0.23)', color: selectedFile ? 'primary.main' : 'text.secondary' }}
+                        >
+                            {selectedFile ? selectedFile.name : "Select File *"}
+                            <input
+                                type="file"
+                                hidden
+                                onChange={handleFileChange}
+                            />
+                        </Button>
+
+                        <FormControlLabel
+                            control={<Checkbox checked={isSensitive} onChange={(e) => setIsSensitive(e.target.checked)} />}
+                            label="Is this document sensitive? (Will be encrypted)"
+                        />
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={handleClose} disabled={uploading}>Cancel</Button>
+                    <Button
+                        onClick={handleUpload}
+                        variant="contained"
+                        disabled={uploading}
+                        startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : null}
+                    >
+                        {uploading ? "Uploading..." : "Submit & Upload"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };

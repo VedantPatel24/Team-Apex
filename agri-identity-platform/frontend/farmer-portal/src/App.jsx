@@ -6,6 +6,9 @@ import Dashboard from './pages/Dashboard';
 import AuthorizePage from './pages/AuthorizePage';
 import Marketplace from './pages/Marketplace';
 import DocumentVault from './pages/DocumentVault';
+import LoanApplicationPage from './pages/LoanApplicationPage';
+import AdminLoginPage from './pages/AdminLoginPage';
+import AdminDashboard from './pages/AdminDashboard';
 
 // Simple Protected Route
 const ProtectedRoute = ({ children }) => {
@@ -37,6 +40,25 @@ const App = () => {
                     element={
                         <ProtectedRoute>
                             <DocumentVault />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/loan/apply"
+                    element={
+                        <ProtectedRoute>
+                            <LoanApplicationPage />
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* Admin Routes */}
+                <Route path="/admin/login" element={<AdminLoginPage />} />
+                <Route
+                    path="/admin/dashboard"
+                    element={
+                        <ProtectedRoute>
+                            <AdminDashboard />
                         </ProtectedRoute>
                     }
                 />

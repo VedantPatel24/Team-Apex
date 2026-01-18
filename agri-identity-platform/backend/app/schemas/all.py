@@ -5,6 +5,9 @@ from pydantic import BaseModel, EmailStr
 class Token(BaseModel):
     access_token: str
     token_type: str
+    user_id: int
+    user_name: str
+    role: str = "farmer" # farmer or admin
 
 class TokenData(BaseModel):
     id: Optional[str] = None
@@ -14,12 +17,9 @@ class FarmerBase(BaseModel):
     full_name: str
     phone_number: str
     email: Optional[EmailStr] = None
-    attributes: Optional[Dict[str, Any]] = {}
 
 class FarmerCreate(FarmerBase):
     password: str
-    aadhaar_number: str # Will be encrypted
-    land_record_id: Optional[str] = None # Will be encrypted
 
 class FarmerLogin(BaseModel):
     phone_number: str
@@ -27,7 +27,6 @@ class FarmerLogin(BaseModel):
 
 class FarmerResponse(FarmerBase):
     id: int
-    profile_photo: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -103,9 +102,32 @@ class ActiveConsentResponse(BaseModel):
 class DocumentResponse(BaseModel):
     id: int
     title: str
+    doc_type: str
     filename: str
+    storage_path: str # Added to allow accessing the actual file
     mime_type: str
+    is_sensitive: bool
     created_at: Any
     
     class Config:
         from_attributes = True
+
+# --- Loan Schemas ---
+class LoanApplicationCreate(BaseModel):
+    service_id: int
+    document_ids: List[int]
+
+class LoanApplicationResponse(BaseModel):
+    id: int
+    farmer_id: int
+    service_id: int
+    status: str
+    admin_notes: Optional[str] = None
+    created_at: Any
+    
+    class Config:
+        from_attributes = True
+
+class AdminLogin(BaseModel):
+    username: str
+    password: str

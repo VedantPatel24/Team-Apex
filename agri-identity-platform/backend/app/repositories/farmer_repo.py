@@ -6,15 +6,15 @@ from app.core.security import get_password_hash, encrypt_data
 def get_farmer_by_phone(db: Session, phone_number: str):
     return db.query(Farmer).filter(Farmer.phone_number == phone_number).first()
 
+def get_farmer_by_email(db: Session, email: str):
+    return db.query(Farmer).filter(Farmer.email == email).first()
+
 def create_farmer(db: Session, farmer: FarmerCreate):
     db_farmer = Farmer(
         full_name=farmer.full_name,
         phone_number=farmer.phone_number,
         email=farmer.email,
-        hashed_password=get_password_hash(farmer.password),
-        aadhaar_enc=encrypt_data(farmer.aadhaar_number),
-        land_record_id_enc=encrypt_data(farmer.land_record_id),
-        attributes=farmer.attributes
+        hashed_password=get_password_hash(farmer.password)
     )
     db.add(db_farmer)
     db.commit()

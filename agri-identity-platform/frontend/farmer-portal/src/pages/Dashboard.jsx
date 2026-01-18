@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Container, Paper, Grid, Button, Divider, List, ListItem, ListItemText, Chip, Avatar } from '@mui/material';
+import { Box, Typography, Container, Paper, Grid, Button, Divider, List, ListItem, ListItemText, Chip, Avatar, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
@@ -13,31 +13,50 @@ const Dashboard = () => {
     const [userData, setUserData] = useState(null);
     const [logs, setLogs] = useState([]);
     const [consents, setConsents] = useState([]);
+    const [loanApps, setLoanApps] = useState([]);
 
     useEffect(() => {
         fetchDashboardData();
     }, []);
 
     const fetchDashboardData = async () => {
+        // 1. Fetch Profile Data (My Attributes) - CRITICAL
         try {
-            // 1. Fetch Profile Data (My Attributes)
             const resProfile = await api.get('/user/data');
             setUserData(resProfile.data);
-
-            // 2. Fetch Access Logs
-            const resLogs = await api.get('/user/logs');
-            setLogs(resLogs.data);
-
-            // 3. Fetch Active Consents
-            const resConsents = await api.get('/oauth/active');
-            setConsents(resConsents.data);
-
+            console.log("Dashboard - User Data:", resProfile.data);
         } catch (error) {
-            console.error("Failed to fetch dashboard data", error);
+            console.error("Failed to fetch user data", error);
             if (error.response?.status === 401) {
                 localStorage.removeItem('token');
                 navigate('/login');
+                return; // Stop here if auth fails
             }
+        }
+
+        // 2. Fetch Access Logs - Independent
+        try {
+            const resLogs = await api.get('/user/logs');
+            setLogs(resLogs.data);
+        } catch (error) {
+            console.error("Failed to fetch logs", error);
+        }
+
+        // 3. Fetch Active Consents - Independent
+        try {
+            const resConsents = await api.get('/oauth/active');
+            setConsents(resConsents.data);
+        } catch (error) {
+            console.error("Failed to fetch consents", error);
+        }
+
+        // 4. Fetch Loan Apps - Independent
+        try {
+            const resLoans = await api.get('/loan/my-applications');
+            setLoanApps(resLoans.data);
+            console.log("Dashboard - Loans:", resLoans.data);
+        } catch (error) {
+            console.error("Failed to fetch loan applications", error);
         }
     };
 
@@ -146,7 +165,7 @@ const Dashboard = () => {
                         </Paper>
 
                         {/* Connected Apps */}
-                        <Paper sx={{ p: 3, borderRadius: 3 }}>
+                        <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
                             <Typography variant="h6" gutterBottom>Connected Apps</Typography>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                                 <Typography variant="body2" color="textSecondary">
@@ -177,6 +196,57 @@ const Dashboard = () => {
                                             >
                                                 Revoke
                                             </Button>
+                                        </ListItem>
+                                    ))}
+                                </List>
+                            )}
+                        </Paper>
+
+                        {/* Active Loans */}
+                        <Paper sx={{ p: 3, borderRadius: 3 }}>
+                            <Typography variant="h6" gutterBottom>My Loans</Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                <Typography variant="body2" color="textSecondary">
+                                    Track status of your applications.
+                                </Typography>
+                                <Button variant="text" onClick={() => navigate('/loan/apply')}>
+                                    + Apply New
+                                </Button>
+                            </Box>
+                            <Divider />
+                            {loanApps.length === 0 ? (
+                                <Box sx={{ p: 3, textAlign: 'center' }}>
+                                    <Typography color="textSecondary">No active loan applications.</Typography>
+                                </Box>
+                            ) : (
+                                <List>
+                                    {loanApps.map((app) => (
+                                        <ListItem key={app.id} sx={{ borderBottom: '1px solid #eee', display: 'block' }}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <ListItemText
+                                                    primary={`Application #${app.id}`}
+                                                    secondary={new Date(app.created_at).toLocaleDateString()}
+                                                />
+                                                <Chip
+                                                    label={app.status.replace(/_/g, " ")}
+                                                    size="small"
+                                                    color={
+                                                        app.status === 'APPROVED' ? 'success' :
+                                                            app.status === 'REJECTED' ? 'error' :
+                                                                app.status === 'REQUEST_DOC' ? 'warning' :
+                                                                    'default'
+                                                    }
+                                                />
+                                            </Box>
+                                            {/* Admin Feedback Section */}
+                                            {app.admin_notes && (
+                                                <Alert severity={app.status === 'REJECTED' ? 'error' : 'info'} sx={{ mt: 1, py: 0 }}>
+                                                    <Typography variant="caption" fontWeight="bold">Admin Feedback:</Typography>
+                                                    <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+                                                        "{app.admin_notes}"
+                                                    </Typography>
+                                                </Alert>
+                                            )}
                                         </ListItem>
                                     ))}
                                 </List>

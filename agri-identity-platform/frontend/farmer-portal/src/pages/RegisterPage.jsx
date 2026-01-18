@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
     Box, Container, Typography, TextField, Button, Paper, Grid, SvgIcon,
@@ -19,10 +20,6 @@ const RegisterPage = () => {
         phone_number: '',
         email: '',
         password: '',
-        aadhaar_number: '',
-        land_record_id: '',
-        farm_size: '',
-        village: ''
     });
 
     // OTP State
@@ -38,18 +35,11 @@ const RegisterPage = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            // Transform for flexible attributes
             const payload = {
                 full_name: formData.full_name,
                 phone_number: formData.phone_number,
                 email: formData.email,
-                password: formData.password,
-                aadhaar_number: formData.aadhaar_number,
-                land_record_id: formData.land_record_id,
-                attributes: {
-                    farm_size: formData.farm_size,
-                    village: formData.village
-                }
+                password: formData.password
             };
 
             // 1. Register -> Sends OTP
@@ -67,16 +57,18 @@ const RegisterPage = () => {
     const handleVerifyOtp = async () => {
         setVerifying(true);
         try {
-            const res = await api.post('/auth/verify-registration-otp', null, {
+            // Using correct query parameters as expected by Backend
+            await api.post('/auth/verify-registration-otp', null, {
                 params: {
                     phone_number: formData.phone_number,
                     otp: otp
                 }
             });
             // Result is Token
-            localStorage.setItem('token', res.data.access_token);
-            toast.success("Verification successful! Welcome.");
-            navigate('/dashboard');
+            // Login successful
+            toast.success("Verification successful! Please Login.");
+            // We can also auto-login, but typically we redirect to login for security or clarity
+            navigate('/login');
         } catch (error) {
             setVerifying(false);
             toast.error(error.response?.data?.detail || "Invalid OTP");
@@ -84,85 +76,70 @@ const RegisterPage = () => {
     };
 
     return (
-        <Box sx={{
-            minHeight: '100vh',
-            background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            py: 4
-        }}>
-            <Container maxWidth="sm">
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                    <Paper sx={{ p: 4, borderRadius: 4, boxShadow: '0 8px 32px rgba(46, 125, 50, 0.1)' }}>
-                        <Box sx={{ textAlign: 'center', mb: 3 }}>
-                            <AgricultureIcon sx={{ fontSize: 50, color: 'primary.main', mb: 1 }} />
-                            <Typography variant="h4" fontWeight="700" color="primary.dark">
-                                Join AgriID
-                            </Typography>
-                            <Typography variant="body1" color="textSecondary">
-                                Create your secure farmer identity
-                            </Typography>
-                        </Box>
-
-                        <form onSubmit={handleSubmit}>
-                            <Grid container spacing={2}>
-                                {/* Basic Info */}
-                                <Grid item xs={12}>
-                                    <TextField fullWidth label="Full Name" name="full_name" required onChange={handleChange} />
-                                </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField fullWidth label="Phone Number" name="phone_number" required onChange={handleChange} />
-                                </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField fullWidth label="Email Address" name="email" type="email" required onChange={handleChange} />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <TextField fullWidth label="Password" name="password" type="password" required onChange={handleChange} />
-                                </Grid>
-
-                                {/* Identity Info */}
-                                <Grid item xs={12}>
-                                    <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>Identity Details</Typography>
-                                </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField fullWidth label="Aadhaar Number" name="aadhaar_number" required onChange={handleChange} />
-                                </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField fullWidth label="Land Record ID" name="land_record_id" required onChange={handleChange} />
-                                </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField fullWidth label="Farm Size (Acres)" name="farm_size" onChange={handleChange} />
-                                </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField fullWidth label="Village" name="village" onChange={handleChange} />
-                                </Grid>
-
-                                <Grid item xs={12} sx={{ mt: 2 }}>
-                                    <Button
-                                        type="submit"
-                                        fullWidth
-                                        variant="contained"
-                                        size="large"
-                                        disabled={loading}
-                                        sx={{ borderRadius: 2, height: 48, fontSize: '1.1rem' }}
-                                    >
-                                        {loading ? <CircularProgress size={24} color="inherit" /> : 'Create Account'}
-                                    </Button>
-                                </Grid>
-                            </Grid>
-                        </form>
-
-                        <Box sx={{ textAlign: 'center', mt: 3 }}>
-                            <Link to="/login" style={{ textDecoration: 'none' }}>
-                                <Typography variant="body2" color="primary" sx={{ fontWeight: 500 }}>
-                                    Already have an account? Sign in
+        <>
+            <Box sx={{
+                minHeight: '100vh',
+                background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                py: 4
+            }}>
+                <Container maxWidth="sm">
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                        <Paper sx={{ p: 4, borderRadius: 4, boxShadow: '0 8px 32px rgba(46, 125, 50, 0.1)' }}>
+                            <Box sx={{ textAlign: 'center', mb: 3 }}>
+                                <AgricultureIcon sx={{ fontSize: 50, color: 'primary.main', mb: 1 }} />
+                                <Typography variant="h4" fontWeight="700" color="primary.dark">
+                                    Join AgriID
                                 </Typography>
-                            </Link>
-                        </Box>
-                    </Paper>
-                </motion.div>
-            </Container>
+                                <Typography variant="body1" color="textSecondary">
+                                    Create your secure farmer identity
+                                </Typography>
+                            </Box>
+
+                            <form onSubmit={handleSubmit}>
+                                <Grid container spacing={2}>
+                                    {/* Basic Info */}
+                                    <Grid item xs={12}>
+                                        <TextField fullWidth label="Full Name" name="full_name" required onChange={handleChange} />
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <TextField fullWidth label="Phone Number" name="phone_number" required onChange={handleChange} />
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <TextField fullWidth label="Email Address" name="email" type="email" required onChange={handleChange} />
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                        <TextField fullWidth label="Password" name="password" type="password" required onChange={handleChange} />
+                                    </Grid>
+
+                                    <Grid item xs={12} sx={{ mt: 2 }}>
+                                        <Button
+                                            type="submit"
+                                            fullWidth
+                                            variant="contained"
+                                            size="large"
+                                            disabled={loading}
+                                            sx={{ borderRadius: 2, height: 48, fontSize: '1.1rem' }}
+                                        >
+                                            {loading ? <CircularProgress size={24} color="inherit" /> : 'Create Account'}
+                                        </Button>
+                                    </Grid>
+                                </Grid>
+                            </form>
+
+                            <Box sx={{ textAlign: 'center', mt: 3 }}>
+                                <Link to="/login" style={{ textDecoration: 'none' }}>
+                                    <Typography variant="body2" color="primary" sx={{ fontWeight: 500 }}>
+                                        Already have an account? Sign in
+                                    </Typography>
+                                </Link>
+                            </Box>
+                        </Paper>
+                    </motion.div>
+                </Container>
+            </Box>
 
             {/* OTP Dialog */}
             <Dialog open={showOtpDialog} disableEscapeKeyDown>
@@ -185,7 +162,7 @@ const RegisterPage = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
-        </Box>
+        </>
     );
 };
 

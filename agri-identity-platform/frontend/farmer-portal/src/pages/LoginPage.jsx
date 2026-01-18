@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { Box, Container, Typography, TextField, Button, Paper, Avatar, InputAdornment, IconButton } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
@@ -13,55 +14,34 @@ const LoginPage = () => {
     const [searchParams] = useSearchParams();
     const returnTo = searchParams.get('return_to');
 
-    const [step, setStep] = useState(1); // 1 = Creds, 2 = OTP
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
     const [formData, setFormData] = useState({
         phone_number: '',
-        password: '',
-        otp: ''
+        password: ''
     });
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleLoginInit = async (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
-            const res = await api.post('/auth/login-init', {
-                phone_number: formData.phone_number,
-                password: formData.password
-            });
+            // Backend expects 'username' and 'password' in x-www-form-urlencoded
+            const params = new URLSearchParams();
+            params.append('username', formData.phone_number);
+            params.append('password', formData.password);
 
-            if (res.data.require_otp) {
-                setStep(2);
-                toast.info("OTP sent to your email!");
-                setLoading(false);
-            } else {
-                // Unexpected direct login? (Maybe enabled later)
-                toast.error("Unexpected response");
-                setLoading(false);
-            }
-        } catch (error) {
-            setLoading(false);
-            toast.error(error.response?.data?.detail || "Login failed");
-        }
-    };
-
-    const handleVerifyOtp = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            const res = await api.post('/auth/login-verify', null, {
-                params: {
-                    phone_number: formData.phone_number,
-                    otp: formData.otp
+            const res = await api.post('/auth/login', params, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
                 }
             });
 
+            // Store Token
             localStorage.setItem('token', res.data.access_token);
             toast.success("Welcome back!");
 
@@ -72,7 +52,8 @@ const LoginPage = () => {
             }
         } catch (error) {
             setLoading(false);
-            toast.error(error.response?.data?.detail || "Invalid OTP");
+            console.error("Login Error:", error);
+            toast.error(error.response?.data?.detail || "Invalid phone number or password");
         }
     };
 
@@ -92,83 +73,53 @@ const LoginPage = () => {
                         </Avatar>
 
                         <Typography variant="h5" fontWeight="700" color="primary.dark" gutterBottom>
-                            {step === 1 ? 'Farmer Login' : 'Verify Identity'}
+                            Farmer Login
                         </Typography>
 
-                        {step === 1 ? (
-                            <form onSubmit={handleLoginInit}>
-                                <TextField
-                                    fullWidth
-                                    margin="normal"
-                                    label="Phone Number"
-                                    name="phone_number"
-                                    value={formData.phone_number}
-                                    onChange={handleChange}
-                                    required
-                                />
-                                <TextField
-                                    fullWidth
-                                    margin="normal"
-                                    label="Password"
-                                    name="password"
-                                    type={showPassword ? 'text' : 'password'}
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    required
-                                    InputProps={{
-                                        endAdornment: (
-                                            <InputAdornment position="end">
-                                                <IconButton
-                                                    onClick={() => setShowPassword(!showPassword)}
-                                                    edge="end"
-                                                >
-                                                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                                                </IconButton>
-                                            </InputAdornment>
-                                        ),
-                                    }}
-                                />
-                                <Button
-                                    fullWidth
-                                    type="submit"
-                                    variant="contained"
-                                    size="large"
-                                    disabled={loading}
-                                    sx={{ mt: 3, mb: 2, borderRadius: 2 }}
-                                >
-                                    {loading ? 'Sending OTP...' : 'Login'}
-                                </Button>
-                            </form>
-                        ) : (
-                            <form onSubmit={handleVerifyOtp}>
-                                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                                    Enter the code sent to your email.
-                                </Typography>
-                                <TextField
-                                    fullWidth
-                                    margin="normal"
-                                    label="Enter OTP"
-                                    name="otp"
-                                    value={formData.otp}
-                                    onChange={handleChange}
-                                    required
-                                    autoFocus
-                                />
-                                <Button
-                                    fullWidth
-                                    type="submit"
-                                    variant="contained"
-                                    size="large"
-                                    disabled={loading}
-                                    sx={{ mt: 3, mb: 2, borderRadius: 2 }}
-                                >
-                                    {loading ? 'Verifying...' : 'Verify Login'}
-                                </Button>
-                                <Button size="small" onClick={() => setStep(1)}>
-                                    Back
-                                </Button>
-                            </form>
-                        )}
+                        <form onSubmit={handleLogin}>
+                            <TextField
+                                fullWidth
+                                margin="normal"
+                                label="Phone Number"
+                                name="phone_number"
+                                value={formData.phone_number}
+                                onChange={handleChange}
+                                required
+                                autoFocus
+                            />
+                            <TextField
+                                fullWidth
+                                margin="normal"
+                                label="Password"
+                                name="password"
+                                type={showPassword ? 'text' : 'password'}
+                                value={formData.password}
+                                onChange={handleChange}
+                                required
+                                InputProps={{
+                                    endAdornment: (
+                                        <InputAdornment position="end">
+                                            <IconButton
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                edge="end"
+                                            >
+                                                {showPassword ? <VisibilityOff /> : <Visibility />}
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ),
+                                }}
+                            />
+                            <Button
+                                fullWidth
+                                type="submit"
+                                variant="contained"
+                                size="large"
+                                disabled={loading}
+                                sx={{ mt: 3, mb: 2, borderRadius: 2 }}
+                            >
+                                {loading ? 'Logging in...' : 'Login'}
+                            </Button>
+                        </form>
 
                         <Box sx={{ mt: 2 }}>
                             <Link to="/register" style={{ textDecoration: 'none' }}>
