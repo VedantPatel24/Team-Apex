@@ -7,8 +7,9 @@ import AuthorizePage from './pages/AuthorizePage';
 import Marketplace from './pages/Marketplace';
 import DocumentVault from './pages/DocumentVault';
 import LoanApplicationPage from './pages/LoanApplicationPage';
-import AdminLoginPage from './pages/AdminLoginPage';
-import AdminDashboard from './pages/AdminDashboard';
+import LoanAdminDashboard from './pages/LoanAdminDashboard';
+import AdvisoryAdminDashboard from './pages/AdvisoryAdminDashboard';
+import CropAdvisoryPage from './pages/CropAdvisoryPage';
 
 // Simple Protected Route
 const ProtectedRoute = ({ children }) => {
@@ -23,7 +24,11 @@ const App = () => {
     return (
         <BrowserRouter>
             <Routes>
+
+                {/* Unified Login */}
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/" element={<Navigate to="/login" replace />} />
+
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/authorize" element={<AuthorizePage />} />
 
@@ -51,19 +56,34 @@ const App = () => {
                         </ProtectedRoute>
                     }
                 />
-
-                {/* Admin Routes */}
-                <Route path="/admin/login" element={<AdminLoginPage />} />
                 <Route
-                    path="/admin/dashboard"
+                    path="/crop-advisory/apply"
                     element={
                         <ProtectedRoute>
-                            <AdminDashboard />
+                            <CropAdvisoryPage />
                         </ProtectedRoute>
                     }
                 />
 
-                {/* Protected Routes */}
+                {/* Distinct Admin Dashboards */}
+                <Route
+                    path="/admin/loan/dashboard"
+                    element={
+                        <ProtectedRoute>
+                            <LoanAdminDashboard />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/admin/advisory/dashboard"
+                    element={
+                        <ProtectedRoute>
+                            <AdvisoryAdminDashboard />
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* Farmer Dashboard */}
                 <Route
                     path="/dashboard"
                     element={
@@ -73,8 +93,8 @@ const App = () => {
                     }
                 />
 
-                {/* Default Redirect */}
-                <Route path="/" element={<Navigate to="/login" replace />} />
+                {/* Fallback */}
+                <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </BrowserRouter>
     );

@@ -51,10 +51,16 @@ async def get_current_user(
 
 from app.models.admin import Admin
 
-async def get_current_admin_id(
+from pydantic import BaseModel
+
+class AdminContext(BaseModel):
+    id: int
+    service_id: int
+
+async def get_current_admin(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
-) -> int:
+) -> AdminContext:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate admin credentials",
@@ -64,14 +70,14 @@ async def get_current_admin_id(
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
         scope: str = payload.get("scope")
+        service_id: int = payload.get("service_id")
         
         if user_id is None or scope != "admin":
              raise credentials_exception
-             
-        # Optional: Check if admin exists in DB
-        # admin = db.query(Admin).filter(Admin.id == int(user_id)).first()
-        # if not admin: raise credentials_exception
-
-        return int(user_id)
+        
+        # We rely on the token claim for service_id to avoid DB lookup for every request,
+        # ensuring strict domain isolation based on login context.
+        return AdminContext(id=int(user_id), service_id=service_id)
+        
     except JWTError:
         raise credentials_exception

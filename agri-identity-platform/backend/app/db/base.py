@@ -6,3 +6,4 @@ from app.models.access_log import AccessLog  # noqa
 from app.models.document import Document # noqa
 from app.models.feedback import Feedback # noqa
 from app.models.loan_application import LoanApplication # noqa
+from app.models.crop_advisory import CropAdvisory # noqa
