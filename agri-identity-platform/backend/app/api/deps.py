@@ -48,3 +48,30 @@ async def get_current_user(
             detail="User not found"
         )
     return user
+
+from app.models.admin import Admin
+
+async def get_current_admin_id(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> int:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate admin credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: str = payload.get("sub")
+        scope: str = payload.get("scope")
+        
+        if user_id is None or scope != "admin":
+             raise credentials_exception
+             
+        # Optional: Check if admin exists in DB
+        # admin = db.query(Admin).filter(Admin.id == int(user_id)).first()
+        # if not admin: raise credentials_exception
+
+        return int(user_id)
+    except JWTError:
+        raise credentials_exception

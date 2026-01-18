@@ -147,7 +147,13 @@ def verify_registration_otp(
         subject=farmer.id,
         claims={"scope": "profile"}
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user_id": farmer.id,
+        "user_name": farmer.full_name,
+        "role": "farmer"
+    }
 
 @router.post("/login", response_model=Token)
 def login_access_token(
@@ -172,4 +178,10 @@ def login_access_token(
         subject=farmer.id,
         claims={"scope": "profile"}
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user_id": farmer.id,
+        "user_name": farmer.full_name,
+        "role": "farmer"
+    }

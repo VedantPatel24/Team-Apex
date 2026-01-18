@@ -5,6 +5,9 @@ from pydantic import BaseModel, EmailStr
 class Token(BaseModel):
     access_token: str
     token_type: str
+    user_id: int
+    user_name: str
+    role: str = "farmer" # farmer or admin
 
 class TokenData(BaseModel):
     id: Optional[str] = None
@@ -101,6 +104,7 @@ class DocumentResponse(BaseModel):
     title: str
     doc_type: str
     filename: str
+    storage_path: str # Added to allow accessing the actual file
     mime_type: str
     is_sensitive: bool
     created_at: Any
@@ -118,6 +122,7 @@ class LoanApplicationResponse(BaseModel):
     farmer_id: int
     service_id: int
     status: str
+    admin_notes: Optional[str] = None
     created_at: Any
     
     class Config:

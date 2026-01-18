@@ -4,3 +4,5 @@ from app.models.service import Service  # noqa
 from app.models.consent import Consent  # noqa
 from app.models.access_log import AccessLog  # noqa
 from app.models.document import Document # noqa
+from app.models.feedback import Feedback # noqa
+from app.models.loan_application import LoanApplication # noqa

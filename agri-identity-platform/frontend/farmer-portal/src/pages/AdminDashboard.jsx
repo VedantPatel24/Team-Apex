@@ -38,14 +38,38 @@ const AdminDashboard = () => {
 
     const handleDecide = async (id, status) => {
         try {
-            await api.post(`/loan/admin/decide/${id}`, null, {
-                params: { status }
+            await api.post(`/loan/admin/decide/${id}`, {
+                status: status,
+                feedback_message: `Admin deciding: ${status}` // Simple default message
             });
             toast.success(`Application ${status}`);
             fetchApplications();
         } catch (error) {
+            console.error(error);
             toast.error("Action failed");
         }
+    };
+
+    const [selectedDocs, setSelectedDocs] = useState([]);
+    const [viewDocOpen, setViewDocOpen] = useState(false);
+    const [viewingAppId, setViewingAppId] = useState(null);
+
+    const handleViewDocs = async (appId) => {
+        setViewingAppId(appId);
+        try {
+            const res = await api.get(`/loan/admin/application/${appId}/documents`);
+            setSelectedDocs(res.data);
+            setViewDocOpen(true);
+            // This fetch triggers the backend log
+        } catch (error) {
+            console.error("Fetch docs failed", error);
+            toast.error("Failed to fetch documents. Consent may be expired.");
+        }
+    };
+
+    const handleCloseDocs = () => {
+        setViewDocOpen(false);
+        setSelectedDocs([]);
     };
 
     return (
@@ -75,10 +99,13 @@ const AdminDashboard = () => {
                                 </TableCell>
                                 <TableCell>{new Date(app.created_at).toLocaleDateString()}</TableCell>
                                 <TableCell>
+                                    <Button size="small" variant="outlined" sx={{ mr: 1 }} onClick={() => handleViewDocs(app.id)}>
+                                        View Docs
+                                    </Button>
                                     {app.status === 'PENDING' && (
                                         <>
-                                            <Button color="success" onClick={() => handleDecide(app.id, 'APPROVED')}>Approve</Button>
-                                            <Button color="error" onClick={() => handleDecide(app.id, 'REJECTED')}>Reject</Button>
+                                            <Button size="small" color="success" onClick={() => handleDecide(app.id, 'APPROVED')} sx={{ mr: 1 }}>Approve</Button>
+                                            <Button size="small" color="error" onClick={() => handleDecide(app.id, 'REJECTED')}>Reject</Button>
                                         </>
                                     )}
                                 </TableCell>
@@ -87,6 +114,37 @@ const AdminDashboard = () => {
                     </TableBody>
                 </Table>
             </TableContainer>
+
+            {/* Documents Dialog */}
+            <Dialog open={viewDocOpen} onClose={handleCloseDocs} fullWidth maxWidth="sm">
+                <DialogTitle>Application #{viewingAppId} Documents</DialogTitle>
+                <DialogContent>
+                    {selectedDocs.length === 0 ? (
+                        <Typography>No documents found.</Typography>
+                    ) : (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                            {selectedDocs.map((doc) => (
+                                <Paper key={doc.id} variant="outlined" sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Box>
+                                        <Typography variant="subtitle2">{doc.doc_type}</Typography>
+                                        <Typography variant="body2" color="textSecondary">{doc.filename}</Typography>
+                                    </Box>
+                                    <Button variant="contained" size="small" onClick={() => {
+                                        // Extract filename from storage_path (handles both / and \)
+                                        const actualFilename = doc.storage_path.split(/[/\\]/).pop();
+                                        window.open(`http://localhost:8000/uploads/${actualFilename}`, '_blank');
+                                    }}>
+                                        View
+                                    </Button>
+                                </Paper>
+                            ))}
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDocs}>Close</Button>
+                </DialogActions>
+            </Dialog>
         </Container>
     );
 };

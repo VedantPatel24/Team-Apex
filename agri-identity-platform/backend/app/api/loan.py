@@ -11,8 +11,9 @@ from app.models.farmer import Farmer
 from app.models.document import Document
 from app.models.admin import Admin
 from app.models.consent import Consent
-from app.schemas.all import LoanApplicationCreate, LoanApplicationResponse, ServiceResponse, AdminLogin
+from app.schemas.all import LoanApplicationCreate, LoanApplicationResponse, ServiceResponse, AdminLogin, DocumentResponse
 from app.core.security import create_access_token
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -45,6 +46,24 @@ def apply_for_loan(
     service = db.query(Service).filter(Service.id == application.service_id).first()
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
+
+    # 1.5 Check for Existing Active Applications (PENDING or REQUEST_DOC)
+    # We allow multiple APPROVED loans, but only one PENDING application at a time.
+    print(f"[DEBUG] Checking Duplicates for Farmer {current_farmer_id}, Service {application.service_id}")
+    existing_application = db.query(LoanApplication).filter(
+        LoanApplication.farmer_id == current_farmer_id,
+        LoanApplication.service_id == application.service_id,
+        LoanApplication.status.in_(["PENDING", "REQUEST_DOC"])
+    ).first()
+    
+    if existing_application:
+        print(f"[DEBUG] Found Duplicate: ID {existing_application.id}, Status {existing_application.status}")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"You already have a pending loan application (ID {existing_application.id}). Please wait for a decision."
+        )
+    else:
+        print("[DEBUG] No Duplicate Found")
 
     # 2. Fetch Selected Documents
     documents = db.query(Document).filter(
@@ -108,7 +127,10 @@ def my_applications(
     db: Session = Depends(get_db),
     current_farmer_id: int = Depends(deps.get_current_user_id)
 ):
-    return db.query(LoanApplication).filter(LoanApplication.farmer_id == current_farmer_id).all()
+    print(f"[DEBUG] Fetching loans for Farmer ID: {current_farmer_id}")
+    loans = db.query(LoanApplication).filter(LoanApplication.farmer_id == current_farmer_id).all()
+    print(f"[DEBUG] Found {len(loans)} loans for Farmer ID: {current_farmer_id}")
+    return loans
 
 
 @router.post("/revoke/{application_id}")
@@ -160,13 +182,20 @@ def admin_login(login_data: AdminLogin, db: Session = Depends(get_db)):
         subject=admin.id,
         claims={"scope": "admin", "service_id": admin.service_id}
     )
-    return {"access_token": access_token, "token_type": "bearer", "service_id": admin.service_id}
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "service_id": admin.service_id,
+        "user_id": admin.id,
+        "user_name": admin.username,
+        "role": "admin"
+    }
 
 @router.get("/admin/applications", response_model=List[LoanApplicationResponse])
 def list_all_applications(db: Session = Depends(get_db)):
     return db.query(LoanApplication).all()
 
-@router.get("/admin/application/{application_id}/documents")
+@router.get("/admin/application/{application_id}/documents", response_model=List[DocumentResponse])
 def get_application_documents(
     application_id: int,
     db: Session = Depends(get_db)
@@ -194,18 +223,71 @@ def get_application_documents(
     doc_ids = app.documents_snapshot
     documents = db.query(Document).filter(Document.id.in_(doc_ids)).all()
     
+    # --- LOGGING: Log Admin Access ---
+    from app.models.access_log import AccessLog
+    # We need a service_id for the log. The admin is linked to a service, or we use the app's service_id.
+    # Ideally, get it from current_admin_id but we don't have that easily injected here unless we update deps.
+    # Let's use the app's service_id.
+    
+    new_log = AccessLog(
+        farmer_id=app.farmer_id,
+        service_id=app.service_id,
+        action="DOC_ACCESS_ADMIN",
+        resource=f"Application #{application_id} - {len(documents)} Documents Accessed by Admin",
+        status="SUCCESS",
+        ip_address="Admin Portal", # or request.client.host
+        details="Admin viewed verification documents."
+    )
+    db.add(new_log)
+    db.commit() # Commit log immediately
+    # ---------------------------------
+
     return documents
+
+
+from app.models.feedback import Feedback
+
+class ApplicationDecision(BaseModel):
+    status: str
+    feedback_message: str
 
 @router.post("/admin/decide/{application_id}")
 def decide_application(
     application_id: int,
-    status: str, 
-    db: Session = Depends(get_db)
+    decision: ApplicationDecision,
+    db: Session = Depends(get_db),
+    current_admin_id: int = Depends(deps.get_current_admin_id) # Using a new dependency for admin
 ):
     app = db.query(LoanApplication).filter(LoanApplication.id == application_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
         
-    app.status = status
+    app.status = decision.status
+    app.admin_notes = decision.feedback_message # Also store in main table for easy access
+    
+    # Store explicit Feedback record
+    feedback = Feedback(
+        application_id=app.id,
+        admin_id=current_admin_id,
+        decision=decision.status,
+        feedback_message=decision.feedback_message
+    )
+    db.add(feedback)
+
+    # --- LOGGING: Log Loan Decision/Closure ---
+    from app.models.access_log import AccessLog
+    decision_log = AccessLog(
+        farmer_id=app.farmer_id,
+        service_id=app.service_id,
+        action="LOAN_DECISION",
+        resource=f"Application #{app.id} - Protocol: {decision.status}",
+        status="SUCCESS",
+        ip_address="Admin Portal",
+        details="Application processed. Documents have been used/closed."
+    )
+    db.add(decision_log)
+    # ------------------------------------------
+    
     db.commit()
-    return {"message": f"Application {status}"}
+    return {"message": f"Application {decision.status}"}
+
