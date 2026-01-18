@@ -13,6 +13,7 @@ const Dashboard = () => {
     const [userData, setUserData] = useState(null);
     const [logs, setLogs] = useState([]);
     const [consents, setConsents] = useState([]);
+    const [loanApps, setLoanApps] = useState([]);
 
     useEffect(() => {
         fetchDashboardData();
@@ -31,6 +32,10 @@ const Dashboard = () => {
             // 3. Fetch Active Consents
             const resConsents = await api.get('/oauth/active');
             setConsents(resConsents.data);
+
+            // 4. Fetch Loan Apps
+            const resLoans = await api.get('/loan/my-applications');
+            setLoanApps(resLoans.data);
 
         } catch (error) {
             console.error("Failed to fetch dashboard data", error);
@@ -146,7 +151,7 @@ const Dashboard = () => {
                         </Paper>
 
                         {/* Connected Apps */}
-                        <Paper sx={{ p: 3, borderRadius: 3 }}>
+                        <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
                             <Typography variant="h6" gutterBottom>Connected Apps</Typography>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                                 <Typography variant="body2" color="textSecondary">
@@ -177,6 +182,41 @@ const Dashboard = () => {
                                             >
                                                 Revoke
                                             </Button>
+                                        </ListItem>
+                                    ))}
+                                </List>
+                            )}
+                        </Paper>
+
+                        {/* Active Loans */}
+                        <Paper sx={{ p: 3, borderRadius: 3 }}>
+                            <Typography variant="h6" gutterBottom>My Loans</Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                <Typography variant="body2" color="textSecondary">
+                                    Track status of your applications.
+                                </Typography>
+                                <Button variant="text" onClick={() => navigate('/loan/apply')}>
+                                    + Apply New
+                                </Button>
+                            </Box>
+                            <Divider />
+                            {loanApps.length === 0 ? (
+                                <Box sx={{ p: 3, textAlign: 'center' }}>
+                                    <Typography color="textSecondary">No active loan applications.</Typography>
+                                </Box>
+                            ) : (
+                                <List>
+                                    {loanApps.map((app) => (
+                                        <ListItem key={app.id} sx={{ borderBottom: '1px solid #eee' }}>
+                                            <ListItemText
+                                                primary={`Application #${app.id}`}
+                                                secondary={new Date(app.created_at).toLocaleDateString()}
+                                            />
+                                            <Chip
+                                                label={app.status}
+                                                size="small"
+                                                color={app.status === 'APPROVED' ? 'success' : app.status === 'REJECTED' ? 'error' : 'warning'}
+                                            />
                                         </ListItem>
                                     ))}
                                 </List>

@@ -14,14 +14,18 @@ const Marketplace = () => {
             .catch(err => console.error("Err fetching services", err));
     }, []);
 
-    const handleConnect = (clientId) => {
-        // Redirect to Authorization Page
-        // In a real OAuth flow, this would be an external URL. 
-        // Here, we redirect internally to our Consent Screen Mock.
-        const redirectUri = "http://localhost:5173/dashboard"; // Mock callback
-        const scope = "profile land_records"; // Default request
+    const handleConnect = (service) => {
+        if (service.name === "Agricultural Loan Service") {
+            // Direct to internal Loan Application Flow
+            window.location.href = "/loan/apply";
+            return;
+        }
 
-        window.location.href = `/authorize?client_id=${clientId}&scope=${scope}&redirect_uri=${redirectUri}`;
+        // Redirect to Authorization Page (Mock OAuth)
+        const redirectUri = "http://localhost:5173/dashboard";
+        const scope = "profile";
+
+        window.location.href = `/authorize?client_id=${service.client_id}&scope=${scope}&redirect_uri=${redirectUri}`;
     };
 
     return (
@@ -66,10 +70,10 @@ const Marketplace = () => {
                                         <Button
                                             variant="contained"
                                             startIcon={<VerifiedUserIcon />}
-                                            onClick={() => handleConnect(service.client_id)}
+                                            onClick={() => handleConnect(service)}
                                             sx={{ borderRadius: 20, px: 3 }}
                                         >
-                                            Connect
+                                            {service.name === "Agricultural Loan Service" ? "Apply Now" : "Connect"}
                                         </Button>
                                     </CardActions>
                                 </Card>

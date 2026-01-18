@@ -19,6 +19,5 @@ class Service(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationships
     consents = relationship("Consent", back_populates="service")
     access_logs = relationship("AccessLog", back_populates="service")

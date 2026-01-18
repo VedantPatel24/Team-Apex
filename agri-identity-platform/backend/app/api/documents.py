@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.api.data_access import get_current_user_and_scopes
@@ -23,7 +23,9 @@ def get_db():
 @router.post("/upload", response_model=DocumentResponse)
 async def upload_document(
     file: UploadFile = File(...),
-    title: str = "My Document",
+    title: str = Form(...),
+    doc_type: str = Form("OTHER"), # IDENTITY, LAND_RECORD, etc.
+    is_sensitive: bool = Form(False),
     context: dict = Depends(get_current_user_and_scopes),
     db: Session = Depends(get_db)
 ):
@@ -55,9 +57,11 @@ async def upload_document(
     doc = Document(
         farmer_id=farmer_id,
         title=title,
+        doc_type=doc_type,
         filename=file.filename,
         storage_path=storage_path,
-        mime_type=file.content_type
+        mime_type=file.content_type,
+        is_sensitive=is_sensitive
     )
     db.add(doc)
     db.commit()

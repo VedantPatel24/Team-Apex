@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 import app.db.base # Register models
-from app.api import auth, services, consents, data_access, documents
+from app.api import auth, services, consents, data_access, documents, loan
 
 app = FastAPI(title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/openapi.json")
 
@@ -27,6 +27,7 @@ app.include_router(services.router, prefix=f"{settings.API_V1_STR}/services", ta
 app.include_router(consents.router, prefix=f"{settings.API_V1_STR}/oauth", tags=["oauth"])
 app.include_router(data_access.router, prefix=f"{settings.API_V1_STR}/user", tags=["user"])
 app.include_router(documents.router, prefix=f"{settings.API_V1_STR}/documents", tags=["documents"])
+app.include_router(loan.router, prefix=f"{settings.API_V1_STR}/loan", tags=["loan"])
 
 @app.get("/")
 def read_root():
