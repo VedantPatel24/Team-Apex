@@ -101,6 +101,38 @@ def my_advisory_requests(
 ):
     return db.query(CropAdvisory).filter(CropAdvisory.farmer_id == current_farmer_id).all()
 
+@router.post("/revoke/{request_id}")
+def revoke_advisory_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_farmer_id: int = Depends(deps.get_current_user_id)
+):
+    req = db.query(CropAdvisory).filter(
+        CropAdvisory.id == request_id,
+        CropAdvisory.farmer_id == current_farmer_id
+    ).first()
+    
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+        
+    if req.status != "PENDING":
+        raise HTTPException(status_code=400, detail="Cannot revoke a request that is already processed.")
+
+    req.status = "WITHDRAWN"
+    
+    # Revoke consent
+    consent = db.query(Consent).filter(
+        Consent.farmer_id == current_farmer_id,
+        Consent.service_id == req.service_id,
+        Consent.is_active == True
+    ).first()
+    
+    if consent:
+        consent.is_active = False
+        
+    db.commit()
+    return {"message": "Advisory request withdrawn successfully"}
+
 
 # --- Admin Endpoints ---
 
@@ -109,22 +141,37 @@ class AdvisoryResponseInput(BaseModel):
     fertilizer_plan: str
     sowing_schedule: str
 
+from sqlalchemy.orm import joinedload
+
 @router.get("/admin/requests", response_model=List[CropAdvisoryResponse])
-def list_all_requests(db: Session = Depends(get_db)):
-    # In real app, filter by admin's service_id
-    # We assume the admin is authenticated effectively
-    return db.query(CropAdvisory).all()
+def list_all_requests(
+    db: Session = Depends(get_db),
+    admin: deps.AdminContext = Depends(deps.get_current_admin)
+):
+    # Enforce Domain Separation
+    advisories = db.query(CropAdvisory).options(joinedload(CropAdvisory.farmer)).filter(CropAdvisory.service_id == admin.service_id).all()
+    
+    results = []
+    for a in advisories:
+        a_dict = CropAdvisoryResponse.from_orm(a)
+        if a.farmer:
+            a_dict.farmer_name = a.farmer.full_name
+        results.append(a_dict)
+    return results
 
 @router.post("/admin/advise/{request_id}")
 def provide_advisory(
     request_id: int,
     advice: AdvisoryResponseInput,
     db: Session = Depends(get_db),
-    # current_admin_id: int = Depends(deps.get_current_admin_id) # Using same dep pattern as loan
+    admin: deps.AdminContext = Depends(deps.get_current_admin)
 ):
     req = db.query(CropAdvisory).filter(CropAdvisory.id == request_id).first()
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
+        
+    if req.service_id != admin.service_id:
+        raise HTTPException(status_code=403, detail="Access Denied: Domain mismatch")
         
     req.recommendation = advice.recommendation
     req.fertilizer_plan = advice.fertilizer_plan
@@ -139,7 +186,8 @@ def provide_advisory(
 @router.get("/admin/document/{doc_id}")
 def get_document_details(
     doc_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: deps.AdminContext = Depends(deps.get_current_admin)
 ):
     # 1. Fetch Document
     doc = db.query(Document).filter(Document.id == doc_id).first()
@@ -147,14 +195,16 @@ def get_document_details(
         raise HTTPException(status_code=404, detail="Document not found")
 
     # 2. Get Service ID
-    service = db.query(Service).filter(Service.client_id == SERVICE_ID_STR).first()
-    if not service:
-        raise HTTPException(status_code=500, detail="Service configuration error")
-
-    # 3. Check Active Consent
+    # 2. Check Service ID matches Admin Domain
+    # The document itself doesn't have a service_id, but the context does.
+    # However, to view a document, it must be related to a request in this domain.
+    # OR the admin acts on behalf of the service.
+    # Logic: Verify if ANY active consent exists for this farmer + this admin's service.
+    
+    # Check Active Consent for THIS service
     consent = db.query(Consent).filter(
         Consent.farmer_id == doc.farmer_id,
-        Consent.service_id == service.id,
+        Consent.service_id == admin.service_id, # Must match admin's service
         Consent.is_active == True
     ).first()
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Container, Paper, Grid, Button, Divider, List, ListItem, ListItemText, Chip, Avatar, Alert } from '@mui/material';
+import { Box, Typography, Container, Paper, Grid, Button, Divider, List, ListItem, ListItemText, Chip, Avatar, Alert, IconButton } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
@@ -7,6 +7,26 @@ import SecurityIcon from '@mui/icons-material/Security';
 import HistoryIcon from '@mui/icons-material/History';
 import GppGoodIcon from '@mui/icons-material/GppGood';
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import AgricultureIcon from '@mui/icons-material/Agriculture';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+
+/* --- Premium Theme Constants --- */
+const glassStyle = {
+    background: 'rgba(255, 255, 255, 0.9)',
+    backdropFilter: 'blur(20px)',
+    borderRadius: '16px',
+    boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
+    border: '1px solid rgba(255, 255, 255, 0.18)',
+    overflow: 'hidden',
+    transition: 'transform 0.2s ease-in-out',
+    '&:hover': {
+        transform: 'translateY(-2px)'
+    }
+};
+
+const gradientBg = 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)';
+const cardHeaderBg = 'linear-gradient(90deg, #2E7D32 0%, #43A047 100%)';
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -14,345 +34,310 @@ const Dashboard = () => {
     const [logs, setLogs] = useState([]);
     const [consents, setConsents] = useState([]);
     const [loanApps, setLoanApps] = useState([]);
+    const [advisoryReqs, setAdvisoryReqs] = useState([]);
 
     useEffect(() => {
         fetchDashboardData();
     }, []);
 
     const fetchDashboardData = async () => {
-        // 1. Fetch Profile Data (My Attributes) - CRITICAL
         try {
-            const resProfile = await api.get('/user/data');
-            setUserData(resProfile.data);
-            console.log("Dashboard - User Data:", resProfile.data);
-        } catch (error) {
-            console.error("Failed to fetch user data", error);
-            if (error.response?.status === 401) {
-                localStorage.removeItem('token');
-                navigate('/login');
-                return; // Stop here if auth fails
-            }
-        }
+            // Parallel Fetch where possible, but safely
+            const userRes = await api.get('/user/data').catch(err => {
+                if (err.response?.status === 401) {
+                    localStorage.removeItem('token');
+                    navigate('/login');
+                }
+                return null;
+            });
+            if (userRes) setUserData(userRes.data);
 
-        // 2. Fetch Access Logs - Independent
-        try {
-            const resLogs = await api.get('/user/logs');
-            setLogs(resLogs.data);
-        } catch (error) {
-            console.error("Failed to fetch logs", error);
-        }
+            const [logsRes, consentsRes, loanRes, advRes] = await Promise.all([
+                api.get('/user/logs').catch(() => ({ data: [] })),
+                api.get('/oauth/active').catch(() => ({ data: [] })),
+                api.get('/loan/my-applications').catch(() => ({ data: [] })),
+                api.get('/crop-advisory/my-requests').catch(() => ({ data: [] }))
+            ]);
 
-        // 3. Fetch Active Consents - Independent
-        try {
-            const resConsents = await api.get('/oauth/active');
-            setConsents(resConsents.data);
-        } catch (error) {
-            console.error("Failed to fetch consents", error);
-        }
+            setLogs(logsRes.data);
+            setConsents(consentsRes.data);
+            setLoanApps(loanRes.data);
+            setAdvisoryReqs(advRes.data);
 
-        // 4. Fetch Loan Apps - Independent
-        try {
-            const resLoans = await api.get('/loan/my-applications');
-            setLoanApps(resLoans.data);
-            console.log("Dashboard - Loans:", resLoans.data);
         } catch (error) {
-            console.error("Failed to fetch loan applications", error);
-        }
-
-        // 5. Fetch Advisory Requests
-        try {
-            const resAdv = await api.get('/crop-advisory/my-requests');
-            setAdvisoryReqs(resAdv.data);
-        } catch (error) {
-            console.error("Failed to fetch advisories", error);
+            console.error("Dashboard Fetch Error", error);
         }
     };
-
-    const [advisoryReqs, setAdvisoryReqs] = useState([]);
 
     const handleLogout = () => {
         localStorage.removeItem('token');
         navigate('/login');
     };
 
-    const handleRevoke = async (serviceId) => {
+    const handleRevoke = async (id, type) => {
+        if (!window.confirm("Are you sure you want to revoke access? This action cannot be undone.")) return;
+
         try {
-            await api.post('/oauth/revoke', { service_id: serviceId });
-            // Refresh list
-            setConsents(consents.filter(c => c.service_id !== serviceId));
+            if (type === 'LOAN') {
+                await api.post(`/loan/revoke/${id}?doc_id=ALL`);
+                setLoanApps(prev => prev.filter(l => l.id !== id)); // Optimistic UI update
+                fetchDashboardData(); // Refresh to ensure sync
+            } else if (type === 'ADVISORY') {
+                await api.post(`/crop-advisory/revoke/${id}`);
+                setAdvisoryReqs(prev => prev.filter(r => r.id !== id));
+                fetchDashboardData();
+            } else if (type === 'CONSENT') {
+                await api.post('/oauth/revoke', { service_id: id });
+                setConsents(prev => prev.filter(c => c.service_id !== id));
+            }
         } catch (error) {
             console.error("Revoke failed", error);
+            alert("Failed to revoke: " + (error.response?.data?.detail || "Unknown error"));
         }
     };
 
+    // Animation Variants
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
+    };
+
+    const itemVariants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: { y: 0, opacity: 1 }
+    };
+
     return (
-        <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', pt: 4, pb: 8 }}>
+        <Box sx={{ minHeight: '100vh', background: gradientBg, pt: 4, pb: 8 }}>
             <Container maxWidth="lg">
+
+                {/* Header Section */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Avatar sx={{ bgcolor: 'secondary.main', width: 56, height: 56 }}>
-                            {userData?.full_name?.charAt(0) || 'U'}
-                        </Avatar>
+                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                            <Avatar sx={{ bgcolor: '#1b5e20', width: 64, height: 64, boxShadow: 3, fontSize: '1.5rem' }}>
+                                {userData?.full_name?.charAt(0) || 'U'}
+                            </Avatar>
+                        </motion.div>
                         <Box>
-                            <Typography variant="h4" component="h1" sx={{ color: 'primary.dark', fontWeight: 700 }}>
-                                Farmer Dashboard
+                            <Typography variant="h4" component="h1" sx={{ color: '#1b5e20', fontWeight: 800 }}>
+                                Farmer Portal
                             </Typography>
-                            <Typography variant="subtitle1" color="textSecondary">
-                                Welcome back, {userData?.full_name}
+                            <Typography variant="subtitle1" sx={{ color: '#2e7d32', fontWeight: 500 }}>
+                                Welcome back, {userData?.full_name || 'Partner'}
                             </Typography>
                         </Box>
                     </Box>
-                    <Button variant="outlined" color="error" onClick={handleLogout} sx={{ borderRadius: '20px' }}>
-                        Logout
-                    </Button>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                        <IconButton onClick={fetchDashboardData} color="primary" sx={{ bgcolor: 'white' }}>
+                            <RefreshIcon />
+                        </IconButton>
+                        <Button variant="contained" color="error" onClick={handleLogout} sx={{ borderRadius: '24px', px: 3, fontWeight: 'bold' }}>
+                            Logout
+                        </Button>
+                    </Box>
                 </Box>
 
-                <Grid container spacing={3}>
-                    {/* Welcome / Status Card */}
-                    <Grid item xs={12}>
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                            <Paper sx={{ p: 4, background: 'linear-gradient(45deg, #2E7D32 30%, #4CAF50 90%)', color: 'white', borderRadius: 4 }}>
-                                <Grid container alignItems="center">
-                                    <Grid item xs={12} md={8}>
-                                        <Typography variant="h5" gutterBottom fontWeight="bold">
-                                            Your Digital Identity is Secure
+                <motion.div variants={containerVariants} initial="hidden" animate="visible">
+                    <Grid container spacing={4}>
+
+                        {/* Status Hero Card */}
+                        <Grid item xs={12}>
+                            <motion.div variants={itemVariants}>
+                                <Paper sx={{
+                                    p: 4,
+                                    background: 'linear-gradient(120deg, #1b5e20 0%, #004d40 100%)',
+                                    color: 'white',
+                                    borderRadius: 4,
+                                    boxShadow: '0 12px 24px rgba(27, 94, 32, 0.3)',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <Box>
+                                        <Typography variant="h5" fontWeight="bold" gutterBottom>
+                                            Secure Digital Identity Vault
                                         </Typography>
                                         <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                                            You are in full control. You have granted access to <strong>{consents.length} apps</strong>.
+                                            You are in full control. Active consents: <strong>{consents.length}</strong>.
                                         </Typography>
-                                    </Grid>
-                                    <Grid item xs={12} md={4} sx={{ textAlign: 'right', display: { xs: 'none', md: 'block' } }}>
-                                        <GppGoodIcon sx={{ fontSize: 80, opacity: 0.8 }} />
-                                    </Grid>
-                                </Grid>
-                            </Paper>
-                        </motion.div>
-                    </Grid>
+                                    </Box>
+                                    <GppGoodIcon sx={{ fontSize: 80, opacity: 0.8 }} />
+                                </Paper>
+                            </motion.div>
+                        </Grid>
 
-                    {/* Left Column: Identity & Consents */}
-                    <Grid item xs={12} md={7}>
-                        {/* Identity Attributes */}
-                        <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
-                            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <SecurityIcon color="primary" /> My Identity Attributes
-                            </Typography>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                                <Typography variant="body2" color="textSecondary">
-                                    There are the details stored in your secure vault.
-                                </Typography>
-                                <Button size="small" variant="outlined" startIcon={<FolderSpecialIcon />} onClick={() => navigate('/documents')}>
-                                    My Documents
-                                </Button>
-                            </Box>
-                            <Divider sx={{ mb: 2 }} />
+                        {/* Identity Attributes (Full Width) */}
+                        <Grid item xs={12}>
+                            <motion.div variants={itemVariants}>
+                                <Paper sx={{ ...glassStyle, p: 3 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                                        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#1b5e20', fontWeight: 'bold' }}>
+                                            <SecurityIcon /> My Attributes
+                                        </Typography>
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            color="primary"
+                                            startIcon={<FolderSpecialIcon />}
+                                            onClick={() => navigate('/documents')}
+                                            sx={{ borderRadius: 2 }}
+                                        >
+                                            Document Vault
+                                        </Button>
+                                    </Box>
+                                    <Divider sx={{ mb: 2 }} />
+                                    <Grid container spacing={2}>
+                                        {userData && Object.entries(userData).map(([key, value]) => {
+                                            if (['attributes', 'id', 'hashed_password'].includes(key)) return null;
+                                            return (
+                                                <Grid item xs={12} sm={6} md={3} key={key}>
+                                                    <Box sx={{ p: 1.5, bgcolor: '#f1f8e9', borderRadius: 2 }}>
+                                                        <Typography variant="caption" color="textSecondary" sx={{ textTransform: 'uppercase', letterSpacing: 1 }}>
+                                                            {key.replace(/_/g, ' ')}
+                                                        </Typography>
+                                                        <Typography variant="body1" fontWeight="600" color="#2e7d32">
+                                                            {value || 'N/A'}
+                                                        </Typography>
+                                                    </Box>
+                                                </Grid>
+                                            );
+                                        })}
+                                    </Grid>
+                                </Paper>
+                            </motion.div>
+                        </Grid>
 
-                            <Grid container spacing={2}>
-                                {userData && Object.entries(userData).map(([key, value]) => {
-                                    if (key === 'attributes') return null; // Handle separately
-                                    return (
-                                        <Grid item xs={6} key={key}>
-                                            <Typography variant="caption" color="textSecondary" sx={{ textTransform: 'uppercase' }}>
-                                                {key.replace(/_/g, ' ')}
+                        {/* Services Grid: Loans & Advisory Side-by-Side */}
+                        <Grid item xs={12} md={6}>
+                            <motion.div variants={itemVariants} style={{ height: '100%' }}>
+                                <Paper sx={{ ...glassStyle, p: 0, height: '100%' }}>
+                                    <Box sx={{ p: 2, background: cardHeaderBg, color: 'white' }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <AccountBalanceIcon /> My Loans
                                             </Typography>
-                                            <Typography variant="body1" fontWeight="500">
-                                                {value || 'N/A'}
-                                            </Typography>
-                                        </Grid>
-                                    );
-                                })}
-                                {/* Dynamic Attributes */}
-                                {userData?.attributes && Object.entries(userData.attributes).map(([key, value]) => (
-                                    <Grid item xs={6} key={key}>
-                                        <Typography variant="caption" color="textSecondary" sx={{ textTransform: 'uppercase' }}>
-                                            {key.replace(/_/g, ' ')}
-                                        </Typography>
-                                        <Typography variant="body1" fontWeight="500">
-                                            {value}
-                                        </Typography>
-                                    </Grid>
-                                ))}
-                            </Grid>
-                        </Paper>
-
-                        {/* Connected Apps */}
-                        <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
-                            <Typography variant="h6" gutterBottom>Connected Apps</Typography>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                <Typography variant="body2" color="textSecondary">
-                                    Services you have granted access to.
-                                </Typography>
-                                <Button variant="text" onClick={() => navigate('/marketplace')}>
-                                    + Browse Services
-                                </Button>
-                            </Box>
-                            <Divider />
-                            {consents.length === 0 ? (
-                                <Box sx={{ p: 3, textAlign: 'center' }}>
-                                    <Typography color="textSecondary">No connected apps yet.</Typography>
-                                </Box>
-                            ) : (
-                                <List>
-                                    {consents.map((consent) => (
-                                        <ListItem key={consent.id} sx={{ borderBottom: '1px solid #eee' }}>
-                                            <ListItemText
-                                                primary={consent.service_name}
-                                                secondary={`Granted: ${consent.granted_scopes.join(', ')}`}
-                                            />
                                             <Button
+                                                variant="contained"
+                                                color="warning"
+                                                sx={{ fontWeight: 'bold', px: 3, boxShadow: 2 }}
                                                 size="small"
-                                                color="error"
-                                                variant="outlined"
-                                                onClick={() => handleRevoke(consent.service_id)}
+                                                onClick={() => navigate('/loan/apply')}
                                             >
-                                                Revoke
+                                                + Apply
                                             </Button>
-                                        </ListItem>
-                                    ))}
-                                </List>
-                            )}
-                        </Paper>
+                                        </Box>
+                                    </Box>
 
-                        {/* Active Loans */}
-                        <Paper sx={{ p: 3, borderRadius: 3 }}>
-                            <Typography variant="h6" gutterBottom>My Loans</Typography>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                <Typography variant="body2" color="textSecondary">
-                                    Track status of your applications.
-                                </Typography>
-                                <Button variant="text" onClick={() => navigate('/loan/apply')}>
-                                    + Apply New
-                                </Button>
-                            </Box>
-                            <Divider />
-                            {loanApps.length === 0 ? (
-                                <Box sx={{ p: 3, textAlign: 'center' }}>
-                                    <Typography color="textSecondary">No active loan applications.</Typography>
-                                </Box>
-                            ) : (
-                                <List>
-                                    {loanApps.map((app) => (
-                                        <ListItem key={app.id} sx={{ borderBottom: '1px solid #eee', display: 'block' }}>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <ListItemText
-                                                    primary={`Application #${app.id}`}
-                                                    secondary={new Date(app.created_at).toLocaleDateString()}
-                                                />
-                                                <Chip
-                                                    label={app.status.replace(/_/g, " ")}
-                                                    size="small"
-                                                    color={
-                                                        app.status === 'APPROVED' ? 'success' :
-                                                            app.status === 'REJECTED' ? 'error' :
-                                                                app.status === 'REQUEST_DOC' ? 'warning' :
-                                                                    'default'
-                                                    }
-                                                />
+                                    <List sx={{ p: 0 }}>
+                                        {loanApps.length === 0 ? (
+                                            <Box sx={{ p: 4, textAlign: 'center' }}>
+                                                <Typography color="textSecondary">No active applications.</Typography>
                                             </Box>
-                                            {/* Admin Feedback Section */}
-                                            {app.admin_notes && (
-                                                <Alert severity={app.status === 'REJECTED' ? 'error' : 'info'} sx={{ mt: 1, py: 0 }}>
-                                                    <Typography variant="caption" fontWeight="bold">Admin Feedback:</Typography>
-                                                    <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
-                                                        "{app.admin_notes}"
-                                                    </Typography>
-                                                </Alert>
-                                            )}
-                                        </ListItem>
-                                    ))}
-                                </List>
-                            )}
-                        </Paper>
-
-                        {/* Active Advisories */}
-                        <Paper sx={{ p: 3, borderRadius: 3, mt: 3 }}>
-                            <Typography variant="h6" gutterBottom>My Crop Advisories</Typography>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                <Typography variant="body2" color="textSecondary">
-                                    Expert advice for your crops.
-                                </Typography>
-                                <Button variant="text" onClick={() => navigate('/crop-advisory/apply')}>
-                                    + New Request
-                                </Button>
-                            </Box>
-                            <Divider />
-                            {advisoryReqs.length === 0 ? (
-                                <Box sx={{ p: 3, textAlign: 'center' }}>
-                                    <Typography color="textSecondary">No advisory requests found.</Typography>
-                                </Box>
-                            ) : (
-                                <List>
-                                    {advisoryReqs.map((req) => (
-                                        <ListItem key={req.id} sx={{ borderBottom: '1px solid #eee', display: 'block' }}>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <ListItemText
-                                                    primary={`${req.crop_name} (${req.season})`}
-                                                    secondary={`Location: ${req.location}`}
-                                                />
-                                                <Chip
-                                                    label={req.status}
-                                                    size="small"
-                                                    color={req.status === 'ADVISED' ? 'success' : 'default'}
-                                                />
-                                            </Box>
-                                            {/* Advisory Content */}
-                                            {req.status === 'ADVISED' && (
-                                                <Alert severity="success" sx={{ mt: 1 }}>
-                                                    <Typography variant="subtitle2">Recommendation:</Typography>
-                                                    <Typography variant="body2">{req.recommendation}</Typography>
-                                                    <Divider sx={{ my: 1 }} />
-                                                    <Typography variant="caption"><strong>Plan:</strong> {req.fertilizer_plan}</Typography>
-                                                </Alert>
-                                            )}
-                                        </ListItem>
-                                    ))}
-                                </List>
-                            )}
-                        </Paper>
-                    </Grid>
-
-                    {/* Right Column: Access Logs */}
-                    <Grid item xs={12} md={5}>
-                        <Paper sx={{ p: 3, height: '100%', borderRadius: 3 }}>
-                            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <HistoryIcon color="primary" /> Recent Activity
-                            </Typography>
-                            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                                Audit trail of who accessed your data.
-                            </Typography>
-                            <Divider />
-
-                            <List sx={{ maxHeight: '500px', overflow: 'auto' }}>
-                                {logs.map((log) => (
-                                    <ListItem key={log.id} alignItems="flex-start">
-                                        <ListItemText
-                                            primary={
-                                                <Box component="span" sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <Typography variant="subtitle2">{log.service_name}</Typography>
-                                                    <Typography variant="caption" color="textSecondary">
-                                                        {new Date(log.timestamp).toLocaleTimeString()}
-                                                    </Typography>
+                                        ) : loanApps.map((app) => (
+                                            <ListItem key={app.id} sx={{ borderBottom: '1px solid #eee', flexDirection: 'column', alignItems: 'stretch', p: 2 }}>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', mb: 1 }}>
+                                                    <Typography fontWeight="bold" color="#333">Loan Application #{app.id}</Typography>
+                                                    <Chip
+                                                        label={app.status}
+                                                        size="small"
+                                                        color={app.status === 'APPROVED' ? 'success' : app.status === 'REJECTED' ? 'error' : 'warning'}
+                                                        sx={{ fontWeight: 'bold' }}
+                                                    />
                                                 </Box>
-                                            }
-                                            secondary={
-                                                <React.Fragment>
-                                                    <Typography component="span" variant="body2" color="textPrimary">
-                                                        {log.action}
-                                                    </Typography>
-                                                    {" — " + log.resource}
-                                                </React.Fragment>
-                                            }
-                                        />
-                                    </ListItem>
-                                ))}
-                                {logs.length === 0 && (
-                                    <ListItem>
-                                        <ListItemText secondary="No activity logs found." />
-                                    </ListItem>
-                                )}
-                            </List>
-                        </Paper>
+                                                <Typography variant="caption" color="textSecondary">{new Date(app.created_at).toLocaleDateString()}</Typography>
+
+                                                {(app.status === 'PENDING' || app.status === 'REQUEST_DOC') && (
+                                                    <Button size="small" color="error" variant="outlined" sx={{ mt: 1, alignSelf: 'flex-start' }} onClick={() => handleRevoke(app.id, 'LOAN')}>
+                                                        Withraw Application
+                                                    </Button>
+                                                )}
+                                            </ListItem>
+                                        ))}
+                                    </List>
+                                </Paper>
+                            </motion.div>
+                        </Grid>
+
+                        <Grid item xs={12} md={6}>
+                            <motion.div variants={itemVariants} style={{ height: '100%' }}>
+                                <Paper sx={{ ...glassStyle, p: 0, height: '100%' }}>
+                                    <Box sx={{ p: 2, background: 'linear-gradient(90deg, #00695c 0%, #00897b 100%)', color: 'white' }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <AgricultureIcon /> Crop Advisory
+                                            </Typography>
+                                            <Button
+                                                variant="contained"
+                                                color="warning"
+                                                sx={{ fontWeight: 'bold', px: 3, boxShadow: 2 }}
+                                                size="small"
+                                                onClick={() => navigate('/crop-advisory/apply')}
+                                            >
+                                                + New Request
+                                            </Button>
+                                        </Box>
+                                    </Box>
+
+                                    <List sx={{ p: 0 }}>
+                                        {advisoryReqs.length === 0 ? (
+                                            <Box sx={{ p: 4, textAlign: 'center' }}>
+                                                <Typography color="textSecondary">No advisory requests.</Typography>
+                                            </Box>
+                                        ) : advisoryReqs.map((req) => (
+                                            <ListItem key={req.id} sx={{ borderBottom: '1px solid #eee', flexDirection: 'column', alignItems: 'stretch', p: 2 }}>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', mb: 1 }}>
+                                                    <Typography fontWeight="bold" color="#333">{req.crop_name} <Typography component="span" variant="caption">({req.season})</Typography></Typography>
+                                                    <Chip
+                                                        label={req.status}
+                                                        size="small"
+                                                        sx={{ bgcolor: req.status === 'ADVISED' ? '#e0f2f1' : '#fff3e0', color: req.status === 'ADVISED' ? '#00695c' : '#e65100', fontWeight: 'bold' }}
+                                                    />
+                                                </Box>
+
+                                                {req.status === 'PENDING' && (
+                                                    <Button size="small" color="error" variant="outlined" sx={{ mt: 1, alignSelf: 'flex-start' }} onClick={() => handleRevoke(req.id, 'ADVISED')}>
+                                                        Withraw Request
+                                                    </Button>
+                                                )}
+
+                                                {req.status === 'ADVISED' && (
+                                                    <Alert severity="success" icon={<AgricultureIcon />} sx={{ mt: 1 }}>
+                                                        <Typography variant="subtitle2" fontWeight="bold">Expert Advice:</Typography>
+                                                        <Typography variant="body2">{req.recommendation}</Typography>
+                                                    </Alert>
+                                                )}
+                                            </ListItem>
+                                        ))}
+                                    </List>
+                                </Paper>
+                            </motion.div>
+                        </Grid>
+
+                        {/* Recent Activity Logs */}
+                        <Grid item xs={12}>
+                            <motion.div variants={itemVariants}>
+                                <Paper sx={{ ...glassStyle, p: 3 }}>
+                                    <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#1565c0', fontWeight: 'bold' }}>
+                                        <HistoryIcon /> Recent Activity Log
+                                    </Typography>
+                                    <List>
+                                        {logs.slice(0, 5).map((log) => (
+                                            <ListItem key={log.id} sx={{ py: 1, px: 0 }}>
+                                                <ListItemText
+                                                    primary={<Typography variant="subtitle2" fontWeight="bold">{log.service_name} <span style={{ fontWeight: 'normal', color: '#666' }}>— {log.action}</span></Typography>}
+                                                    secondary={`${new Date(log.timestamp).toLocaleString()} • ${log.details}`}
+                                                />
+                                            </ListItem>
+                                        ))}
+                                        {logs.length === 0 && <Typography variant="body2" color="textSecondary">No recent activity.</Typography>}
+                                    </List>
+                                </Paper>
+                            </motion.div>
+                        </Grid>
+
                     </Grid>
-                </Grid>
+                </motion.div>
             </Container>
         </Box>
     );

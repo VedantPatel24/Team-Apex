@@ -125,6 +125,7 @@ class LoanApplicationResponse(BaseModel):
     status: str
     admin_notes: Optional[str] = None
     created_at: Any
+    farmer_name: Optional[str] = None # Added for Admin View
     
     class Config:
         from_attributes = True
@@ -147,6 +148,7 @@ class CropAdvisoryResponse(BaseModel):
     id: int
     farmer_id: int
     service_id: int
+    farmer_name: Optional[str] = None # Added for Admin View
     
     # Inputs
     location: str # Snapshot from profile

@@ -133,19 +133,18 @@ def my_applications(
     return loans
 
 
+from typing import Union
+
 @router.post("/revoke/{application_id}")
 def revoke_document_access(
     application_id: int,
-    doc_id: int,
+    doc_id: Union[int, str],
     db: Session = Depends(get_db),
     current_farmer_id: int = Depends(deps.get_current_user_id)
 ):
     """
-    Simulates revoking access to a specific document within an application.
-    In a real system, we'd remove the ID from the `documents_snapshot` list 
-    or have a fine-grained Consent-Document link table.
-    
-    For this implementation: We remove the doc_id from the application's snapshot.
+    Revoke access to specific documents or withdraw the entire application.
+    Pass doc_id='ALL' to withdraw the application.
     """
     app = db.query(LoanApplication).filter(
         LoanApplication.id == application_id, 
@@ -155,17 +154,27 @@ def revoke_document_access(
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
 
-    current_snapshot = list(app.documents_snapshot) # Copy
-    if doc_id in current_snapshot:
-        current_snapshot.remove(doc_id)
-        app.documents_snapshot = current_snapshot
-        
-        # If mandatory doc is removed, maybe auto-reject?
-        # For now, just change status to "PENDING - REVOKED" for admin awareness
-        app.status = "PENDING_REVOKED" 
-        
+    if str(doc_id).upper() == "ALL":
+        app.status = "WITHDRAWN"
+        app.documents_snapshot = [] # Clear access
         db.commit()
-        return {"message": "Access to document revoked successfully"}
+        return {"message": "Application withdrawn and all document access revoked."}
+
+    # Specific Document Revocation
+    try:
+        target_doc_id = int(doc_id)
+        current_snapshot = list(app.documents_snapshot) # Copy
+        if target_doc_id in current_snapshot:
+            current_snapshot.remove(target_doc_id)
+            app.documents_snapshot = current_snapshot
+            
+            # If mandatory doc is removed, we might auto-reject or flag
+            app.status = "PENDING_REVOKED" 
+            
+            db.commit()
+            return {"message": "Access to document revoked successfully"}
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid Document ID format")
     
     return {"message": "Document was not part of this application"}
 
@@ -191,14 +200,30 @@ def admin_login(login_data: AdminLogin, db: Session = Depends(get_db)):
         "role": "admin"
     }
 
+from sqlalchemy.orm import joinedload
+
 @router.get("/admin/applications", response_model=List[LoanApplicationResponse])
-def list_all_applications(db: Session = Depends(get_db)):
-    return db.query(LoanApplication).all()
+def list_all_applications(
+    db: Session = Depends(get_db),
+    admin: deps.AdminContext = Depends(deps.get_current_admin)
+):
+    # Enforce Domain Separation: Only show loans for this admin's service
+    loans = db.query(LoanApplication).options(joinedload(LoanApplication.farmer)).filter(LoanApplication.service_id == admin.service_id).all()
+    
+    # Map to schema with farmer_name
+    results = []
+    for l in loans:
+        l_dict = LoanApplicationResponse.from_orm(l)
+        if l.farmer:
+             l_dict.farmer_name = l.farmer.full_name
+        results.append(l_dict)
+    return results
 
 @router.get("/admin/application/{application_id}/documents", response_model=List[DocumentResponse])
 def get_application_documents(
     application_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: deps.AdminContext = Depends(deps.get_current_admin)
 ):
     """
     Admin View: Fetch documents for a specific application.
@@ -207,6 +232,9 @@ def get_application_documents(
     app = db.query(LoanApplication).filter(LoanApplication.id == application_id).first()
     if not app:
          raise HTTPException(status_code=404, detail="Application not found")
+         
+    if app.service_id != admin.service_id:
+        raise HTTPException(status_code=403, detail="Access Denied: You are not authorized for this service domain.")
 
     # Check Consent
     consent = db.query(Consent).filter(
@@ -256,11 +284,14 @@ def decide_application(
     application_id: int,
     decision: ApplicationDecision,
     db: Session = Depends(get_db),
-    current_admin_id: int = Depends(deps.get_current_admin_id) # Using a new dependency for admin
+    admin: deps.AdminContext = Depends(deps.get_current_admin)
 ):
     app = db.query(LoanApplication).filter(LoanApplication.id == application_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
+
+    if app.service_id != admin.service_id:
+        raise HTTPException(status_code=403, detail="Access Denied: You are not authorized for this service domain.")
         
     app.status = decision.status
     app.admin_notes = decision.feedback_message # Also store in main table for easy access
@@ -268,7 +299,7 @@ def decide_application(
     # Store explicit Feedback record
     feedback = Feedback(
         application_id=app.id,
-        admin_id=current_admin_id,
+        admin_id=admin.id,
         decision=decision.status,
         feedback_message=decision.feedback_message
     )

@@ -7,8 +7,8 @@ import AuthorizePage from './pages/AuthorizePage';
 import Marketplace from './pages/Marketplace';
 import DocumentVault from './pages/DocumentVault';
 import LoanApplicationPage from './pages/LoanApplicationPage';
-import AdminLoginPage from './pages/AdminLoginPage';
-import AdminDashboard from './pages/AdminDashboard';
+import LoanAdminDashboard from './pages/LoanAdminDashboard';
+import AdvisoryAdminDashboard from './pages/AdvisoryAdminDashboard';
 import CropAdvisoryPage from './pages/CropAdvisoryPage';
 
 // Simple Protected Route
@@ -24,7 +24,11 @@ const App = () => {
     return (
         <BrowserRouter>
             <Routes>
+
+                {/* Unified Login */}
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/" element={<Navigate to="/login" replace />} />
+
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/authorize" element={<AuthorizePage />} />
 
@@ -61,18 +65,25 @@ const App = () => {
                     }
                 />
 
-                {/* Admin Routes */}
-                <Route path="/admin/login" element={<AdminLoginPage />} />
+                {/* Distinct Admin Dashboards */}
                 <Route
-                    path="/admin/dashboard"
+                    path="/admin/loan/dashboard"
                     element={
                         <ProtectedRoute>
-                            <AdminDashboard />
+                            <LoanAdminDashboard />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/admin/advisory/dashboard"
+                    element={
+                        <ProtectedRoute>
+                            <AdvisoryAdminDashboard />
                         </ProtectedRoute>
                     }
                 />
 
-                {/* Protected Routes */}
+                {/* Farmer Dashboard */}
                 <Route
                     path="/dashboard"
                     element={
@@ -82,8 +93,8 @@ const App = () => {
                     }
                 />
 
-                {/* Default Redirect */}
-                <Route path="/" element={<Navigate to="/login" replace />} />
+                {/* Fallback */}
+                <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </BrowserRouter>
     );
