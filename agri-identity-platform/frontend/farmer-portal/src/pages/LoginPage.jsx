@@ -126,7 +126,10 @@ const LoginPage = () => {
                             {isFarmer ? <LockIcon fontSize="large" /> : <SupervisorAccountIcon fontSize="large" />}
                         </Avatar>
 
-                        <Typography variant="h5" fontWeight="bold" sx={{ color: isFarmer ? '#1b5e20' : '#004d40' }} gutterBottom>
+                        <Typography variant="h4" fontWeight="800" sx={{ color: '#2e7d32', mb: 0 }}>
+                            KhetiSahay
+                        </Typography>
+                        <Typography variant="h6" fontWeight="bold" sx={{ color: isFarmer ? '#1b5e20' : '#004d40' }} gutterBottom>
                             {isFarmer ? 'Farmer Portal' : 'Admin Console'}
                         </Typography>
 

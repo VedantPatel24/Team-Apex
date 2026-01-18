@@ -37,7 +37,7 @@ const LandingPage = () => {
             <Container maxWidth="lg">
                 <Box sx={{ textAlign: 'center', mb: 8, color: 'white' }}>
                     <Typography variant="h2" fontWeight="bold" gutterBottom>
-                        Agri-Identity Platform
+                        KhetiSahay
                     </Typography>
                     <Typography variant="h5">
                         Secure, Consent-Based Agricultural Services
