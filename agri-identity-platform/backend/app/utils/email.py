@@ -20,7 +20,7 @@ async def send_otp_email(email: EmailStr, otp_code: str):
         subject="Your AgriID Verification Code",
         recipients=[email],
         body=f"""
-        <h3>Agri-Identity Platform</h3>
+        <h3>KhetiSahay</h3>
         <p>Your verification code is: <strong>{otp_code}</strong></p>
         <p>This code expires in 10 minutes.</p>
         """,

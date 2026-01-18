@@ -1,193 +1,137 @@
-# 🌾 Agri Privacy-Centric Digital Identity & Consent Platform
 
-## Ingenious Hackathon 7.0 – Problem Statement 2
+# 🌾 KhetiSahay (Agri-Identity Platform)
+### Privacy-Centric Digital Identity & Consent Management for Agriculture
 
-**Privacy-Centric Digital Identity and Trust Management Platform**
-
----
-
-## 📌 Project Overview
-
-This project implements a **privacy-first digital identity and consent management platform for the agriculture domain**. The system empowers farmers to **own, control, and transparently share their identity and land-related data** with agricultural service portals such as subsidy systems, loan providers, and crop advisory platforms.
-
-Instead of centralized data sharing, the platform acts as a **trust layer** that enforces **explicit consent, data minimization, secure authorization, and full auditability**.
+> **Ingenious Hackathon 7.0 - Problem Statement 2**
+> *Privacy-Centric Digital Identity and Trust Management Platform*
 
 ---
 
-## 🎯 Problem Alignment
+## 📌 Overview
+The **Agri-Identity Platform** is a secure, privacy-first ecosystem designed to give farmers full ownership and control over their digital data. It acts as a **Trust Layer** between Farmers and Agricultural Service Providers (Loans, Advisory, Subsidies), replacing direct data exposure with **Consent-Based Access**.
 
-This solution is built in direct alignment with **Problem Statement 2** of Ingenious Hackathon 7.0, focusing on:
-
-* Privacy-centric digital identity
-* User-controlled data sharing
-* Trust establishment without direct data exposure
-* Security-first system architecture
-
-> **Domain Focus:** Agriculture (as per mentor clarification – depth over breadth)
+**Core Philosophy:**
+*   **Data Minimization**: Services only see what they strictly need.
+*   **Explicit Consent**: Farmers must approve every data access request.
+*   **Revocability**: Farmers can revoke access at any time, instantly impacting the service (e.g., auto-canceling a loan application).
 
 ---
 
-## 🧩 Key Features
+## 🚀 Key Features
 
-### 👨‍🌾 Farmer-Owned Digital Identity
+### 👨‍🌾 1. Unified Farmer Portal
+A modern, responsive dashboard where farmers manage their digital life.
+*   **Identity Vault**: View secure attributes (Identity, Land Records).
+*   **Document Vault**: Upload and categorize critical documents (Soil Health Cards, Land Deeds).
+*   **Consent Manager**: View active consents, expire dates, and **Revoke Access** with one click.
+*   **Activity Log**: Transparent audit trail of who accessed what data and when.
 
-* Secure farmer registration & authentication (PIN + OTP)
-* Encrypted storage of identity attributes
-* Attribute-level data management
+### 💰 2. Agricultural Loans Service (Live)
+A fully digital lending flow integrated with the identity platform.
+*   **Smart Application**: Automatically fetches Farmer Data (Name, Land Size) *after* consent is granted.
+*   **Document Verification**: Enforces mandatory uploads (e.g., Land Record) before submission.
+*   **Loan Admin Dashboard**:
+    *   View Anonymized Applications (names hidden until necessary).
+    *   Verify Documents securely.
+    *   Approve/Reject applications.
+*   **Dynamic Revocation**: If a farmer revokes consent while a loan is "Pending", the system **automatically rejects** the loan to preserve data integrity.
 
-### 🤝 Consent-Based Data Sharing
-
-* Services must request explicit consent
-* Farmers approve/reject requested attributes
-* Time-bound and revocable consent
-
-### 🛂 Secure Authorization
-
-* OAuth2-style authorization
-* JWT tokens with scoped permissions
-* Principle of least privilege enforced
-
-### 📜 Transparency & Auditability
-
-* Every data access is logged
-* Farmers can view:
-
-  * Which service accessed data
-  * What attributes were accessed
-  * When and for what purpose
-
-### 🌾 Demo Agricultural Service Portals
-
-* Subsidy Portal (verification use case)
-* Loan / Bank Portal (credit eligibility use case)
-* Crop Advisory Portal (non-personal data use case)
-
-> These are **mock/demo portals** built to simulate real-world integrations.
+### 🌱 3. Crop Advisory Service (Live)
+Expert layout support for crop health and yield optimization.
+*   **Digital Requests**: Farmers submit crop details (Season, Irrigation) and get expert advice.
+*   **Admin Advisory Dashboard**: Experts view requests and provide structured advice (Fertilizer Plan, Sowing Schedule).
 
 ---
 
-## 🏗️ System Architecture (High Level)
+## 🏗️ Technical Architecture
 
-```
-Farmer UI  →  Identity Platform  →  Agri Service Portals
-              (Auth + Consent + Vault)
-```
+### Tech Stack
+*   **Backend**: Python (**FastAPI**) - High performance, async support.
+*   **Database**: PostgreSQL (**SQLAlchemy**) - Relational data integrity.
+*   **Frontend**: React (**Vite** + **Material UI**) - Glassmorphism design & responsive UI.
+*   **Security**: OAuth2 Scopes, JWT (JSON Web Tokens), Bcrypt Hashing.
 
-The Identity Platform acts as a **central trust layer**. Service portals never directly access farmer databases.
+### Security Model: Scope-Based Access Control (SBAC)
+Instead of sharing the entire profile, we use "Scopes":
+*   `profile`: Basic Name/Phone.
+*   `documents`: Ability to view stored documents.
+*   `land_data`: Access to Land Records.
+*   `crop_data`: Access to cropping history.
 
----
-
-## 🔁 Core Use Case Flow (Subsidy Verification)
-
-1. Farmer logs in using mobile number + OTP
-2. Subsidy Portal requests access to specific attributes
-3. Farmer reviews and approves consent
-4. Identity Platform issues a scoped access token
-5. Subsidy Portal fetches only approved data
-6. Access is logged and visible to the farmer
-
----
-
-## 🧠 Tech Stack
-
-### Backend
-
-* **Language:** Python
-* **Framework:** FastAPI
-* **Auth:** OAuth2 (simplified) + JWT
-* **Security:** bcrypt, AES-256 encryption
-* **Database:** PostgreSQL
-* **Caching:** Redis
-
-### Frontend
-
-* **Framework:** React
-* **UI Library:** Material UI / Ant Design
-* **API Calls:** Axios
-
-### Infrastructure
-
-* Docker & Docker Compose
-* REST APIs with OpenAPI (Swagger)
+**Example Flow**:
+1.  Loan Service requests `profile` + `documents`.
+2.  Farmer approves.
+3.  System issues a **Time-Bound Token** valid for 7 days.
+4.  Loan Service uses this token to fetch data.
+5.  If Farmer revokes, the token is invalidated instantly.
 
 ---
 
-## 🗂️ Repository Structure (Simplified)
+## 🛠️ Setup & Installation
 
-```
-agri-identity-platform/
-├── backend/        # FastAPI backend
-├── frontend/       # Farmer & service portals (React)
-├── docs/           # Architecture, ER, Sequence diagrams
-├── docker-compose.yml
-└── README.md
-```
+### Prerequisites
+*   Python 3.9+
+*   Node.js 16+
+*   PostgreSQL (Local or Docker)
 
----
-
-## 🔐 Security & Privacy Principles
-
-* Data minimization by default
-* Explicit, informed consent
-* Attribute-level authorization
-* Encrypted data at rest
-* Full audit trail for trust & transparency
-
----
-
-## 🧪 AI / ML (Planned Extension)
-
-After implementing core functionalities, the platform can be extended with AI features such as:
-
-* Fraud risk scoring for subsidy access
-* Anomaly detection in data access patterns
-* Smart consent recommendations
-
-*(AI is intentionally layered after core security and privacy are ensured.)*
-
----
-
-## 🚀 How to Run (Local – High Level)
-
+### 1. Backend Setup
 ```bash
-# Clone repository
-git clone <repo-url>
-cd agri-identity-platform
+cd backend
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # or venv\Scripts\activate on Windows
 
-# Configure environment
-cp .env.example .env
+# Install dependencies
+pip install -r requirements.txt
 
-# Run using Docker
-docker-compose up --build
+# Environment Config
+# (Ensure .env contains DATABASE_URL="postgresql://user:pass@localhost/agri_db")
+
+# Initialize Database (Seed default Admin/Services)
+python app/db/init_db.py
+
+# Run Server
+uvicorn app.main:app --reload
 ```
+*Backend runs at: `http://localhost:8000`*
 
-Backend API docs will be available at:
+### 2. Frontend Setup
+```bash
+cd frontend/farmer-portal
 
+# Install dependencies
+npm install
+
+# Run Dev Server
+npm run dev
 ```
-http://localhost:8000/docs
-```
+*Frontend runs at: `http://localhost:5173`*
 
 ---
 
-## 🧑‍⚖️ Evaluation Readiness
+## 📖 Usage Guide
 
-This project demonstrates:
+### 🧑‍🌾 Farmer Login
+*   **URL**: `http://localhost:5173/login`
+*   **Credentials**:
+    *   **Phone**: `9876543210`
+    *   **Password**: `password123`
+    *   *(Or Sign Up with a new account)*
 
-* Strong system architecture
-* Privacy-by-design implementation
-* Secure authentication & authorization
-* Clear real-world applicability
-* Transparency and user trust
+### 👮 Admin Login
+*   **URL**: `http://localhost:5173/login` (Select "Admin" Tab)
+*   **Loan Admin**:
+    *   **Domain**: Agricultural Loans
+    *   **Password**: `admin123`
+*   **Advisory Admin**:
+    *   **Domain**: Crop Advisory Services
+    *   **Password**: `admin123`
+
+
 
 ---
 
-## 👥 Team & Contribution
-
-Built as part of **Ingenious Hackathon 7.0**.
-
-Each module follows a clean **repository & service-layer pattern** to ensure scalability and maintainability.
-
----
-
-## 📄 License
-
+## 🔮 Future Roadmap
+*   **Blockchain Integration**: Verifiable Credentials (W3C DID) for immutable trust.
+*   **Marketplace**: Direct-to-Consumer selling with smart contracts.
+*   **AI Diagnostics**: Image-based disease detection for Crop Advisory.

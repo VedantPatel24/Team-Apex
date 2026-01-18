@@ -90,8 +90,11 @@ const RegisterPage = () => {
                         <Paper sx={{ p: 4, borderRadius: 4, boxShadow: '0 8px 32px rgba(46, 125, 50, 0.1)' }}>
                             <Box sx={{ textAlign: 'center', mb: 3 }}>
                                 <AgricultureIcon sx={{ fontSize: 50, color: 'primary.main', mb: 1 }} />
-                                <Typography variant="h4" fontWeight="700" color="primary.dark">
-                                    Join AgriID
+                                <Typography variant="h3" fontWeight="800" color="primary.main" gutterBottom>
+                                    KhetiSahay
+                                </Typography>
+                                <Typography variant="h5" fontWeight="600" color="primary.dark">
+                                    Join AgriID (Agri-Identity)
                                 </Typography>
                                 <Typography variant="body1" color="textSecondary">
                                     Create your secure farmer identity
